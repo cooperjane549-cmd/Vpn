@@ -1,2 +1,3 @@
-rootProject.name = "sweetdataVPN"
+rootProject.name = "SweetDataVPN"
 include ':app'
+project(':app').projectDir = new File('Vpn/app')
