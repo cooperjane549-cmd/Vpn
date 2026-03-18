@@ -1,4 +1,4 @@
-name: Build FreeNetHub VPN APK
+name: Build sweetdata VPN APK
 
 on:
   push:
