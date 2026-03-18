@@ -11,43 +11,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Debug: show files (optional, helps verify gradlew exists)
-      - name: Debug repository
-        run: |
-          echo "Current directory: $(pwd)"
-          ls -R
-          find . -name "gradlew"
-
-      # 3. Setup JDK 17
+      # 2. Setup JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4. Setup Android SDK
+      # 3. Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Make gradlew executable
-      - name: Make Gradle executable
+      # 4. Make gradlew executable
+      - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # 6. Build APK for :app module (which points to Vpn/app)
+      # 5. Build APK
       - name: Build APK
         run: ./gradlew :app:assembleDebug
 
-      # 7. Show APK (debug step)
+      # 6. Find APK dynamically
       - name: Find APK
-        run: find . -name "*.apk"
+        id: find-apk
+        run: |
+          APK_PATH=$(find . -type f -name "*.apk" | head -n 1)
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "Found APK: $APK_PATH"
 
-      # 8. Upload APK artifact
+      # 7. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN
-          path: Vpn/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_PATH }}
