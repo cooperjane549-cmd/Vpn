@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Show repo structure (debug)
+      # 2. Show file structure (debug)
       - name: Show file structure
         run: ls -R
 
@@ -36,19 +36,19 @@ jobs:
           if [ -f "./gradlew" ]; then chmod +x ./gradlew; fi
           if [ -f "./Vpn/gradlew" ]; then chmod +x ./Vpn/gradlew; fi
 
-      # 6. Build APK (handles nested folder)
+      # 6. Build APK (handles nested module)
       - name: Build APK
         run: |
-          if [ -f "./gradlew" ]; then ./gradlew assembleDebug; fi
-          if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew assembleDebug; fi
+          if [ -f "./gradlew" ]; then ./gradlew :app:assembleDebug; fi
+          if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew :app:assembleDebug; fi
 
-      # 7. Find APKs for upload
-      - name: Find APKs
+      # 7. Find APKs for debug
+      - name: List APKs
         run: find . -name "*.apk"
 
-      # 8. Upload all APKs found
+      # 8. Upload all APKs
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN
-          path: '**/*.apk'
+          path: '**/build/outputs/apk/debug/*.apk'
