@@ -30,23 +30,25 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Make gradlew executable (enters folder if needed)
+      # 5. Make gradlew executable (handles nested folder)
       - name: Make Gradle Wrapper Executable
         run: |
           if [ -f "./gradlew" ]; then chmod +x ./gradlew; fi
           if [ -f "./Vpn/gradlew" ]; then chmod +x ./Vpn/gradlew; fi
 
-      # 6. Build APK (tries nested folder if needed)
+      # 6. Build APK (handles nested folder)
       - name: Build APK
         run: |
           if [ -f "./gradlew" ]; then ./gradlew assembleDebug; fi
           if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew assembleDebug; fi
 
-      # 7. Upload APK
-      - name: Upload APK
+      # 7. Find APKs for upload
+      - name: Find APKs
+        run: find . -name "*.apk"
+
+      # 8. Upload all APKs found
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            Vpn/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/*.apk'
