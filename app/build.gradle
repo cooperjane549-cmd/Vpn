@@ -44,8 +44,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
 
-    // WireGuard VPN
+    // WireGuard VPN (only tunnel, works on GitHub Actions)
     implementation "com.wireguard.android:tunnel:1.0.20230706"
-    implementation "com.wireguard.android:backend-go:1.0.20230706"
-    implementation "com.wireguard.android:config:1.0.20230706"
 }
