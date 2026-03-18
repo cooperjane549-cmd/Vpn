@@ -15,14 +15,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup JDK 17
+      # 2. Set up JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Setup Android SDK
+      # 3. Set up Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -30,17 +30,24 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # 5. Build APK
+      # 5. Build APK with verbose output
       - name: Build APK
-        run: ./gradlew :app:assembleDebug
+        run: |
+          echo "Starting APK build..."
+          ./gradlew :app:assembleDebug --stacktrace --info
+        continue-on-error: false  # ❌ Fail immediately if compilation fails
 
-      # 6. Find APK dynamically
+      # 6. Find APK
       - name: Find APK
         id: find-apk
         run: |
-          APK_PATH=$(find . -type f -name "*.apk" | head -n 1)
+          APK_PATH=$(find ./Vpn/app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ APK not found! Check compile errors above."
+            exit 1
+          fi
           echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
-          echo "Found APK: $APK_PATH"
+          echo "✅ Found APK: $APK_PATH"
 
       # 7. Upload APK artifact
       - name: Upload APK
