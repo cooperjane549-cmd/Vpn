@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -30,25 +30,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Make gradlew executable
+      # 5. Make gradlew executable (nested module)
       - name: Make Gradle Wrapper Executable
         run: |
-          if [ -f "./gradlew" ]; then chmod +x ./gradlew; fi
-          if [ -f "./Vpn/gradlew" ]; then chmod +x ./Vpn/gradlew; fi
+          chmod +x Vpn/gradlew
 
-      # 6. Build APK (build the app module explicitly)
+      # 6. Build the app module (nested module)
       - name: Build APK
         run: |
-          if [ -f "./gradlew" ]; then ./gradlew :app:assembleDebug; fi
-          if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew :app:assembleDebug; fi
+          cd Vpn
+          ./gradlew :app:assembleDebug
 
-      # 7. Find APKs (debug step)
-      - name: List APKs
+      # 7. Debug: List all APKs
+      - name: List all APKs
         run: find . -name "*.apk"
 
       # 8. Upload APKs
-      - name: Upload APKs
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: Vpn/app/build/outputs/apk/debug/*.apk
