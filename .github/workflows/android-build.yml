@@ -3,32 +3,50 @@ name: Build SweetData VPN APK
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # 1. Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Show repo structure (debug)
+      - name: Show file structure
+        run: ls -R
+
+      # 3. Set up JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # 4. Set up Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
+      # 5. Make gradlew executable (enters folder if needed)
+      - name: Make Gradle Wrapper Executable
+        run: |
+          if [ -f "./gradlew" ]; then chmod +x ./gradlew; fi
+          if [ -f "./Vpn/gradlew" ]; then chmod +x ./Vpn/gradlew; fi
 
+      # 6. Build APK (tries nested folder if needed)
       - name: Build APK
-        run: ./gradlew assembleDebug
+        run: |
+          if [ -f "./gradlew" ]; then ./gradlew assembleDebug; fi
+          if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew assembleDebug; fi
 
+      # 7. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            Vpn/app/build/outputs/apk/debug/app-debug.apk
