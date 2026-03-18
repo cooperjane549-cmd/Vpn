@@ -30,22 +30,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Make gradlew executable (nested module)
+      # 5. Make gradlew executable (root)
       - name: Make Gradle Wrapper Executable
-        run: |
-          chmod +x Vpn/gradlew
+        run: chmod +x ./gradlew
 
-      # 6. Build the app module (nested module)
+      # 6. Build the app module (nested Vpn/app)
       - name: Build APK
-        run: |
-          cd Vpn
-          ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug -p Vpn
 
       # 7. Debug: List all APKs
       - name: List all APKs
         run: find . -name "*.apk"
 
-      # 8. Upload APKs
+      # 8. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
