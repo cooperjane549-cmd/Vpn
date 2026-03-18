@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Show file structure (debug)
+      # 2. Show repo structure (debug)
       - name: Show file structure
         run: ls -R
 
@@ -30,23 +30,23 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 5. Make gradlew executable (handles nested folder)
+      # 5. Make gradlew executable
       - name: Make Gradle Wrapper Executable
         run: |
           if [ -f "./gradlew" ]; then chmod +x ./gradlew; fi
           if [ -f "./Vpn/gradlew" ]; then chmod +x ./Vpn/gradlew; fi
 
-      # 6. Build APK (handles nested module)
+      # 6. Build APK (build the app module explicitly)
       - name: Build APK
         run: |
           if [ -f "./gradlew" ]; then ./gradlew :app:assembleDebug; fi
           if [ -f "./Vpn/gradlew" ]; then cd Vpn && ./gradlew :app:assembleDebug; fi
 
-      # 7. Find APKs for debug
+      # 7. Find APKs (debug step)
       - name: List APKs
         run: find . -name "*.apk"
 
-      # 8. Upload all APKs
+      # 8. Upload APKs
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
