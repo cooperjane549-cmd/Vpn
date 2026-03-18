@@ -15,17 +15,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Debug: show files and confirm gradlew exists
+      # 2. Debug: show files (optional, helps verify gradlew exists)
       - name: Debug repository
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Listing all files:"
+          echo "Current directory: $(pwd)"
           ls -R
-          echo "Finding gradlew:"
           find . -name "gradlew"
 
-      # 3. Setup Java 17
+      # 3. Setup JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -40,11 +37,11 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      # 6. Build APK for the Vpn/app module
+      # 6. Build APK for :app module (which points to Vpn/app)
       - name: Build APK
-        run: ./gradlew :Vpn:app:assembleDebug
+        run: ./gradlew :app:assembleDebug
 
-      # 7. Show APK location (debug)
+      # 7. Show APK (debug step)
       - name: Find APK
         run: find . -name "*.apk"
 
