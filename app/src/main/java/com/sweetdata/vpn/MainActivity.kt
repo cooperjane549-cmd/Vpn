@@ -3,16 +3,19 @@ package com.sweetdata.vpn
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
-import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import com.sweetdata.vpn.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -24,11 +27,22 @@ class MainActivity : AppCompatActivity() {
                 startVpn()
             }
         }
+
+        startMonitoring()
     }
 
     private fun startVpn() {
-        Toast.makeText(this, "VPN Service Started (ready for future backend)", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, MyVpnService::class.java)
         startService(intent)
+    }
+
+    private fun startMonitoring() {
+        handler.post(object : Runnable {
+            override fun run() {
+                binding.txtUpload.text = "Upload: ${MyVpnService.bytesSent} B"
+                binding.txtDownload.text = "Download: ${MyVpnService.bytesReceived} B"
+                handler.postDelayed(this, 1000)
+            }
+        })
     }
 }
