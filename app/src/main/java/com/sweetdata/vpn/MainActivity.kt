@@ -17,7 +17,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.btnConnect.setOnClickListener {
-            // Prepare VPN permission
             val intent = VpnService.prepare(this)
             if (intent != null) {
                 startActivityForResult(intent, 0)
@@ -28,10 +27,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startVpn() {
-        // For now, just show a toast
-        Toast.makeText(this, "VPN would start here", Toast.LENGTH_SHORT).show()
-
-        // TODO: Launch your MyVpnService here
+        Toast.makeText(this, "VPN Service Started (ready for future backend)", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, MyVpnService::class.java)
         startService(intent)
     }
