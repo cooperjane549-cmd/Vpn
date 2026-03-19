@@ -36,7 +36,7 @@ jobs:
 
       # 6. Build APK
       - name: Build Debug APK
-        run: ./gradlew :Vpn:app:assembleDebug
+        run: ./gradlew :app:assembleDebug
 
       # 7. Upload APK artifact
       - name: Upload APK
