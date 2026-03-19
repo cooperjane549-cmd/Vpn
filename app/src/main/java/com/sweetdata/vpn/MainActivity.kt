@@ -1,9 +1,9 @@
 package com.sweetdata.vpn
 
-import android.app.Activity
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.sweetdata.vpn.databinding.ActivityMainBinding
 
@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.btnConnect.setOnClickListener {
+            // Prepare VPN permission
             val intent = VpnService.prepare(this)
             if (intent != null) {
                 startActivityForResult(intent, 0)
@@ -27,14 +28,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startVpn() {
+        // For now, just show a toast
+        Toast.makeText(this, "VPN would start here", Toast.LENGTH_SHORT).show()
+
+        // TODO: Launch your MyVpnService here
         val intent = Intent(this, MyVpnService::class.java)
         startService(intent)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 0 && resultCode == Activity.RESULT_OK) {
-            startVpn()
-        }
     }
 }
