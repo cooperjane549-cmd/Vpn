@@ -5,7 +5,7 @@
     <application
         android:allowBackup="true"
         android:label="sweetdata VPN"
-        android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+        android:theme="@style/Theme.SweetDataVPN"
 
         <!-- MainActivity must specify android:exported for Android 12+ -->
         <activity
