@@ -1,4 +1,4 @@
-package com.sweetdata.vpn
+package com.sweetdatavpn
 
 import android.content.Intent
 import android.net.VpnService
