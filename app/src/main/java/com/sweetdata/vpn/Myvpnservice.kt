@@ -17,7 +17,7 @@ class MyVpnService : VpnService() {
     private var running = false
 
     // Configuration - Change these to your VPS details
-    private val remoteHost = "1.2.3.4" // Put your VPS IP here
+    private val remoteHost = "100.64.201.65" // Put your VPS IP here
     private val remotePort = 51820
     private val mtuSize = 1280 // Standard for VPN compatibility
 
