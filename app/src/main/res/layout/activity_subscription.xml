@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#090909">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:text="BUNDLE STORE"
+            android:textColor="#FF0033"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="#FF0033"
+            app:strokeWidth="1dp">
+            <LinearLayout
+                android:padding="24dp"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView android:text="30 DAYS UNLIMITED" android:textColor="#9CA3AF" android:textSize="14sp"/>
+                <TextView android:text="KSh 600 / $4.70" android:textColor="#FFFFFF" android:textSize="32sp" android:textStyle="bold"/>
+                <TextView android:text="No Data Limits • High Speed" android:textColor="#22C55E" android:textSize="12sp" android:layout_marginTop="8dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:text="PAYMENT OPTIONS"
+            android:textColor="#9CA3AF"
+            android:layout_marginTop="32dp"
+            android:textSize="12sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMpesa"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp">
+            <TextView android:padding="20dp" android:text="PAY VIA M-PESA (TILL: 3043489)" android:textColor="#22C55E" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPaypal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp">
+            <TextView android:padding="20dp" android:text="PAY VIA PAYPAL ($)" android:textColor="#0070BA" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
