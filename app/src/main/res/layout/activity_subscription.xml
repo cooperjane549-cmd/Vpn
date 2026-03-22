@@ -1,78 +1,121 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#090909"
-    android:padding="20dp">
+    android:background="#090909">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="VIP STORE"
-        android:textColor="#FFFFFF"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="30dp"/>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardPaypal"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="#1AFFFFFF"
-        app:cardCornerRadius="12dp"
-        android:layout_marginBottom="16dp"
-        android:clickable="true"
-        android:focusable="true">
-        
-        <LinearLayout
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VIP &amp; REWARDS"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="20dp"/>
+
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="20dp">
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Global VIP (PayPal)"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Unlimited High Speed - $5/Month"
-                android:textColor="#9CA3AF"/>
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Invite Friends (Earn 50MB)"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/tvReferralCode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Your Code: LOADING..."
+                    android:textColor="#9CA3AF"
+                    android:layout_marginTop="5dp"/>
+                <Button
+                    android:id="@+id/btnShareReferral"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="SHARE ON WHATSAPP"
+                    android:layout_marginTop="10dp"
+                    app:backgroundTint="#25D366"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardMpesa"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:cardBackgroundColor="#1AFFFFFF"
-        app:cardCornerRadius="12dp"
-        android:clickable="true"
-        android:focusable="true">
-        
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPaypal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="10dp"
+            android:clickable="true"
+            android:focusable="true">
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Local VIP (M-Pesa)"
-                android:textColor="#22C55E"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Till: 3043489 - KSh 500/Month"
-                android:textColor="#9CA3AF"/>
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Global VIP (PayPal)"
+                    android:textColor="#0070BA"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Unlimited High Speed - $5/Month"
+                    android:textColor="#9CA3AF"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-</LinearLayout>
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMpesa"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="10dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="M-Pesa (Kenya)"
+                    android:textColor="#22C55E"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Till: 3043489 - KSh 500/Month"
+                    android:textColor="#9CA3AF"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContactAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="20dp"
+            android:text="SEND SCREENSHOT TO ADMIN"
+            app:backgroundTint="#25D366"
+            app:cornerRadius="12dp" />
+
+    </LinearLayout>
+</ScrollView>
