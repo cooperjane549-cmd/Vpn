@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cyber_black">#090909</color>
+    <color name="primary_red">#FF0033</color>
+    <color name="secondary_red">#C40029</color>
+    <color name="matcha_green">#22C55E</color>
+    <color name="glass_white">#1AFFFFFF</color>
+    <color name="text_gray">#9CA3AF</color>
+    <color name="white">#FFFFFF</color>
+</resources>
