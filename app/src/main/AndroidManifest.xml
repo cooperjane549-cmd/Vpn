@@ -1,21 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:label="SweetData VPN"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
-        <activity android:name=".MainActivity" android:exported="true">
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-2344867686796379~2770827433"/>
+
+        <activity android:name="com.sweetdata.vpn.MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <activity android:name="com.sweetdata.vpn.TasksActivity" />
+        <activity android:name="com.sweetdata.vpn.SubscriptionActivity" />
+
         <service
-            android:name=".MyVpnService"
+            android:name="com.sweetdata.vpn.MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false">
             <intent-filter>
