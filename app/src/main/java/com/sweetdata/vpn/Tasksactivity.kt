@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewarded.RewardItem
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.button.MaterialButton
@@ -19,30 +20,32 @@ class TasksActivity : AppCompatActivity() {
 
         loadRewardedAd()
 
+        // Ensure these IDs exist in activity_tasks.xml
         findViewById<MaterialButton>(R.id.btnWatchAd).setOnClickListener {
-            showAd()
-        }
-
-        findViewById<MaterialButton>(R.id.btnCreateTask).setOnClickListener {
-            // Logic for KSh 450 task creation
-            Toast.makeText(this, "Opening Task Creator...", Toast.LENGTH_SHORT).show()
+            showRewardedAd()
         }
     }
 
     private fun loadRewardedAd() {
         val adRequest = AdRequest.Builder().build()
-        // Using Test ID for now - replace with your real Rewarded ID later
         RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest, 
             object : RewardedAdLoadCallback() {
-                override fun onAdLoaded(ad: RewardedAd) { rewardedAd = ad }
-                override fun onAdFailedToLoad(adError: LoadAdError) { rewardedAd = null }
+                override fun onAdLoaded(ad: RewardedAd) {
+                    rewardedAd = ad
+                }
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    rewardedAd = null
+                }
             })
     }
 
-    private fun showAd() {
-        rewardedAd?.show(this) { rewardItem ->
-            Toast.makeText(this, "Earned ${rewardItem.amount} MB", Toast.LENGTH_LONG).show()
-            loadRewardedAd() // Load next
+    private fun showRewardedAd() {
+        rewardedAd?.let { ad ->
+            ad.show(this) { rewardItem: RewardItem ->
+                val rewardAmount = rewardItem.amount
+                Toast.makeText(this, "Earned $rewardAmount MB", Toast.LENGTH_SHORT).show()
+                loadRewardedAd()
+            }
         } ?: run {
             Toast.makeText(this, "Ad not ready", Toast.LENGTH_SHORT).show()
         }
