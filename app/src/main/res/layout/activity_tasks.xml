@@ -1,69 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout 
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"
     android:background="#090909">
 
     <TextView
-        android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="DISCONNECTED"
-        android:textColor="#9CA3AF"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        android:layout_marginTop="60dp" />
-
-    <TextView
-        android:id="@+id/tvMbBalance"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="1024 MB"
-        android:textColor="#FFFFFF"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/tvStatus"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent" />
+        android:text="EARN MB DATA"
+        android:textColor="#FF0033"
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnConnect"
-        android:layout_width="220dp"
-        android:layout_height="220dp"
-        android:text="CONNECT"
-        app:cornerRadius="110dp"
-        app:backgroundTint="#FF0033"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent" />
-
-    <LinearLayout
+        android:id="@+id/btnWatchAd"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="20dp"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_marginTop="30dp"
+        android:text="WATCH AD (5MB)"
+        app:backgroundTint="#22C55E" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/navTasks"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="TASKS"
-            android:layout_marginEnd="10dp"
-            app:backgroundTint="#1AFFFFFF"/>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreateTask"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="CREATE PAID TASK (KSh 450)"
+        app:backgroundTint="#FF0033" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStore"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="STORE"
-            app:backgroundTint="#1AFFFFFF"/>
-    </LinearLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>
