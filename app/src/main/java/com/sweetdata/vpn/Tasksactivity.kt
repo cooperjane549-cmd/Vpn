@@ -20,15 +20,21 @@ class TasksActivity : AppCompatActivity() {
 
         loadRewardedAd()
 
-        // Ensure these IDs exist in activity_tasks.xml
-        findViewById<MaterialButton>(R.id.btnWatchAd).setOnClickListener {
+        // Link the button to the XML ID
+        val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
+        btnWatchAd.setOnClickListener {
             showRewardedAd()
+        }
+
+        findViewById<MaterialButton>(R.id.btnCreateTask).setOnClickListener {
+            Toast.makeText(this, "Redirecting to Admin...", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun loadRewardedAd() {
         val adRequest = AdRequest.Builder().build()
-        RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest, 
+        // Test ID for Rewarded Ads
+        RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest,
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     rewardedAd = ad
@@ -42,12 +48,11 @@ class TasksActivity : AppCompatActivity() {
     private fun showRewardedAd() {
         rewardedAd?.let { ad ->
             ad.show(this) { rewardItem: RewardItem ->
-                val rewardAmount = rewardItem.amount
-                Toast.makeText(this, "Earned $rewardAmount MB", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Earned ${rewardItem.amount} MB", Toast.LENGTH_LONG).show()
                 loadRewardedAd()
             }
         } ?: run {
-            Toast.makeText(this, "Ad not ready", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ad not ready yet. Please wait...", Toast.LENGTH_SHORT).show()
         }
     }
 }
