@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen // Added import
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
@@ -22,6 +23,9 @@ class MainActivity : AppCompatActivity() {
     private var isVpnRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. Initialize Splash Screen FIRST
+        val splashScreen = installSplashScreen()
+        
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
