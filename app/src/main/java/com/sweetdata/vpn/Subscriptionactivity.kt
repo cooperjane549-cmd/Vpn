@@ -53,7 +53,7 @@ class SubscriptionActivity : AppCompatActivity() {
 
         // 4. Contact Admin (WhatsApp)
         findViewById<MaterialButton>(R.id.btnContactAdmin).setOnClickListener {
-            val phone = "+2547XXXXXXXX" // REPLACE with your actual WhatsApp number
+            val phone = "+254789574046" // REPLACE with your actual WhatsApp number
             val msg = "Hello Admin, I paid for VIP on SweetData. Here is my screenshot. My code is $userReferralCode"
             val url = "https://api.whatsapp.com/send?phone=$phone&text=${Uri.encode(msg)}"
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
