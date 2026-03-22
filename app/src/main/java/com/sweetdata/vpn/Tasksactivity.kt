@@ -1,10 +1,10 @@
 package com.sweetdata.vpn
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.button.MaterialButton
@@ -17,30 +17,34 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        // Load Rewarded Ad (5MB Logic)
-        loadRewarded()
+        loadRewardedAd()
 
         findViewById<MaterialButton>(R.id.btnWatchAd).setOnClickListener {
-            rewardedAd?.show(this) { _ -> 
-                Toast.makeText(this, "5MB Credited!", Toast.LENGTH_SHORT).show()
-                // Update local wallet logic here
-            }
+            showAd()
         }
 
-        // Paid Task Creation (KSh 450)
         findViewById<MaterialButton>(R.id.btnCreateTask).setOnClickListener {
-            val wpIntent = Intent(Intent.ACTION_VIEW, 
-                Uri.parse("https://wa.me/+254789574046?text=I want to pay KSh 450 to launch a social task."))
-            startActivity(wpIntent)
+            // Logic for KSh 450 task creation
+            Toast.makeText(this, "Opening Task Creator...", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun loadRewarded() {
-        // Replace with your specific Rewarded Ad ID if different
-        com.google.android.gms.ads.rewarded.RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", 
-            com.google.android.gms.ads.AdRequest.Builder().build(), object : RewardedAdLoadCallback() {
+    private fun loadRewardedAd() {
+        val adRequest = AdRequest.Builder().build()
+        // Using Test ID for now - replace with your real Rewarded ID later
+        RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest, 
+            object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) { rewardedAd = ad }
+                override fun onAdFailedToLoad(adError: LoadAdError) { rewardedAd = null }
             })
     }
-}
 
+    private fun showAd() {
+        rewardedAd?.show(this) { rewardItem ->
+            Toast.makeText(this, "Earned ${rewardItem.amount} MB", Toast.LENGTH_LONG).show()
+            loadRewardedAd() // Load next
+        } ?: run {
+            Toast.makeText(this, "Ad not ready", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
