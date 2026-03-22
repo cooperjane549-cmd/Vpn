@@ -13,17 +13,18 @@ class SubscriptionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_subscription)
 
-        // PayPal Link Integration
+        // PayPal Payment
         findViewById<MaterialCardView>(R.id.cardPaypal).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/R886H7EXD7DZN")))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/R886H7EXD7DZN"))
+            startActivity(intent)
         }
 
-        // M-Pesa Logic
+        // M-Pesa Payment
         findViewById<MaterialCardView>(R.id.cardMpesa).setOnClickListener {
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Till", "3043489"))
-            Toast.makeText(this, "Till 3043489 copied! Pay and send screenshot.", Toast.LENGTH_LONG).show()
+            val clip = android.content.ClipData.newPlainText("Till", "3043489")
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Till 3043489 copied! Pay & send screenshot to Admin.", Toast.LENGTH_LONG).show()
         }
     }
 }
-
