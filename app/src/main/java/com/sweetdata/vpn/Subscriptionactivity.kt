@@ -24,8 +24,7 @@ class SubscriptionActivity : AppCompatActivity() {
 
         // 1. PayPal Payment Click
         findViewById<MaterialCardView>(R.id.cardPaypal).setOnClickListener {
-            val paypalUrl = "https://www.paypal.com/ncp/payment/ADJDGV25FGBP4
-            "
+            val paypalUrl = "https://www.paypal.com/ncp/payment/ADJDGV25FGBP4"
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paypalUrl))
             startActivity(intent)
         }
