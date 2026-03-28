@@ -9,19 +9,23 @@ import java.io.FileOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
 
 class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var running = false
 
-    // Configuration - Change these to your VPS details
-    private val remoteHost = "100.64.201.65" // Put your VPS IP here
+    // Configuration
+    private val remoteHost = "62.169.23.118" // Your Contabo IP
     private val remotePort = 51820
-    private val mtuSize = 1280 // Standard for VPN compatibility
+    private val mtuSize = 1400 // Slightly higher for better speed on Contabo
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "STOP") {
+            stopVpn()
+            return START_NOT_STICKY
+        }
+
         if (!running) {
             setupVpn()
         }
@@ -33,18 +37,19 @@ class MyVpnService : VpnService() {
             val builder = Builder()
             builder.setSession("SweetData")
                 .addAddress("10.0.0.2", 24)
-                .addRoute("0.0.0.0", 0) // Route ALL traffic
-                .addDnsServer("8.8.8.8") // Google DNS
-                .addDnsServer("1.1.1.1") // Cloudflare DNS
+                .addRoute("0.0.0.0", 0) 
+                .addDnsServer("8.8.8.8") 
+                .addDnsServer("1.1.1.1") 
                 .setMtu(mtuSize)
 
             vpnInterface = builder.establish()
 
             if (vpnInterface != null) {
                 running = true
-                // Start the core logic in a background thread
-                Thread { startTunnel(vpnInterface!!.fileDescriptor) }.start()
-                Log.d("SweetData", "VPN Tunnel Established")
+                // Pass the FileDescriptor to the tunnel logic
+                val fd = vpnInterface!!.fileDescriptor
+                Thread { startTunnel(fd) }.start()
+                Log.d("SweetData", "VPN Tunnel Established to $remoteHost")
             }
         } catch (e: Exception) {
             Log.e("SweetData", "Setup Failed: ${e.message}")
@@ -52,49 +57,63 @@ class MyVpnService : VpnService() {
     }
 
     private fun startTunnel(fd: java.io.FileDescriptor) {
-        val input = FileInputStream(fd)
-        val output = FileOutputStream(fd)
-        
-        // Create the socket and PROTECT it
         val socket = DatagramSocket()
-        protect(socket) // This is the MOST important line
-        socket.connect(InetSocketAddress(remoteHost, remotePort))
+        
+        try {
+            protect(socket) // Prevents infinite loop
+            socket.connect(InetSocketAddress(remoteHost, remotePort))
+            
+            val input = FileInputStream(fd)
+            val output = FileOutputStream(fd)
 
-        // Thread 1: Phone -> VPS (Upload)
-        val uploadThread = Thread {
-            val buffer = ByteArray(mtuSize)
-            try {
-                while (running) {
-                    val length = input.read(buffer)
-                    if (length > 0) {
-                        val packet = DatagramPacket(buffer, length)
-                        socket.send(packet)
+            // Thread 1: Phone -> VPS (Upload)
+            val uploadThread = Thread {
+                val buffer = ByteArray(mtuSize)
+                try {
+                    while (running) {
+                        val length = input.read(buffer)
+                        if (length > 0) {
+                            val packet = DatagramPacket(buffer, length)
+                            socket.send(packet)
+                        }
                     }
+                } catch (e: Exception) {
+                    if (running) Log.e("SweetData", "Upload Error: ${e.message}")
                 }
-            } catch (e: Exception) { Log.e("SweetData", "Upload Error: ${e.message}") }
-        }
+            }
 
-        // Thread 2: VPS -> Phone (Download)
-        val downloadThread = Thread {
-            val buffer = ByteArray(mtuSize + 100)
-            try {
-                while (running) {
-                    val packet = DatagramPacket(buffer, buffer.size)
-                    socket.receive(packet)
-                    output.write(packet.data, 0, packet.length)
+            // Thread 2: VPS -> Phone (Download)
+            val downloadThread = Thread {
+                val buffer = ByteArray(mtuSize + 100)
+                try {
+                    while (running) {
+                        val packet = DatagramPacket(buffer, buffer.size)
+                        socket.receive(packet)
+                        output.write(packet.data, 0, packet.length)
+                    }
+                } catch (e: Exception) {
+                    if (running) Log.e("SweetData", "Download Error: ${e.message}")
                 }
-            } catch (e: Exception) { Log.e("SweetData", "Download Error: ${e.message}") }
-        }
+            }
 
-        uploadThread.start()
-        downloadThread.start()
+            uploadThread.start()
+            downloadThread.start()
+
+        } catch (e: Exception) {
+            Log.e("SweetData", "Socket Error: ${e.message}")
+        }
     }
 
-    override fun onDestroy() {
+    private fun stopVpn() {
         running = false
         vpnInterface?.close()
         vpnInterface = null
+        stopSelf()
         Log.d("SweetData", "VPN Stopped")
+    }
+
+    override fun onDestroy() {
+        stopVpn()
         super.onDestroy()
     }
 }
