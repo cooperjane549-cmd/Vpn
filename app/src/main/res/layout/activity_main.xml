@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:background="#090909">
 
+    <!-- Status Text -->
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
@@ -17,11 +18,12 @@
         app:layout_constraintRight_toRightOf="parent"
         android:layout_marginTop="60dp" />
 
+    <!-- Balance Text -->
     <TextView
         android:id="@+id/tvMbBalance"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="1024 MB"
+        android:text="0 MB"
         android:textColor="#FFFFFF"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -29,19 +31,55 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
+    <!-- NETWORK SELECTOR (Added this to fix the crash) -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggleNetworkGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        app:singleSelection="true"
+        app:checkedButton="@+id/btnSafaricom"
+        app:layout_constraintTop_toBottomOf="@id/tvMbBalance"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSafaricom"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Safaricom"
+            android:textColor="#FFFFFF"
+            app:strokeColor="#33FFFFFF" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAirtel"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Airtel"
+            android:textColor="#FFFFFF"
+            app:strokeColor="#33FFFFFF" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <!-- Main Connect Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnConnect"
         android:layout_width="220dp"
         android:layout_height="220dp"
         android:text="CONNECT"
+        android:textSize="18sp"
+        android:textStyle="bold"
         app:cornerRadius="110dp"
         app:backgroundTint="#FF0033"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/bottomNav"
+        app:layout_constraintTop_toBottomOf="@id/toggleNetworkGroup"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
+    <!-- Bottom Navigation -->
     <LinearLayout
+        android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
