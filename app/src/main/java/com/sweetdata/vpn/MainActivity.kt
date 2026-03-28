@@ -172,7 +172,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
         // Replace with your real SweetDataVPN Ad Unit ID before publishing
-        InterstitialAd.load(this, "ca-app-pub-3940256099942544/1033173712", adRequest,
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
                 override fun onAdFailedToLoad(adError: LoadAdError) { mInterstitialAd = null }
