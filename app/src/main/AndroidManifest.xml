@@ -1,44 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permissions for SweetDataVPN -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application
-    android:allowBackup="true"
-    android:icon="@drawable/app_logo"
-    android:roundIcon="@drawable/app_logo"
-    android:label="SweetData VPN"
-    android:supportsRtl="true"
-    android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="SweetDataVPN"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-2344867686796379~2770827433"/>
-
-        <activity 
-            android:name=".MainActivity" 
-            android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".TasksActivity" android:exported="false" />
-        <activity android:name=".SubscriptionActivity" android:exported="false" />
-
+        <!-- The VPN Service Definition -->
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
-            android:foregroundServiceType="specialUse"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
         </service>
+
+        <!-- Placeholder for Ads and Firebase -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-2344867686796379/4612206920"/> <!-- TEST ID -->
+
     </application>
 </manifest>
