@@ -18,15 +18,14 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.NoActionBar">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- The VPN Service Definition -->
+        <!-- VPN Service -->
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
@@ -36,10 +35,10 @@
             </intent-filter>
         </service>
 
-        <!-- Placeholder for Ads and Firebase -->
+        <!-- AdMob App ID (Mandatory for Ads to work) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-2344867686796379/4612206920"/> <!-- TEST ID -->
+            android:value="ca-app-pub-2344867686796379/4612206920"/>
 
     </application>
 </manifest>
