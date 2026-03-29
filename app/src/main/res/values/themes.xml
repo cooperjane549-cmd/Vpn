@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.MaterialComponents.DayNight.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- 1. Give your theme a unique name (e.g., Theme.Matcha) -->
+    <style name="Theme.Matcha" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#FF0033</item>
         <item name="android:statusBarColor">#090909</item>
+        <!-- Add this to ensure Material Components work correctly -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
     </style>
 
+    <!-- 2. Splash Screen Theme -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo</item>
         <item name="windowSplashScreenBackground">#090909</item>
-        <item name="postSplashScreenTheme">@style/Theme.MaterialComponents.DayNight.NoActionBar</item>
+        <!-- 3. Point this to your NEW unique name -->
+        <item name="postSplashScreenTheme">@style/Theme.Matcha</item>
     </style>
 </resources>
-
