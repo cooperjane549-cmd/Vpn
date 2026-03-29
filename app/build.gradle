@@ -1,6 +1,8 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
+    // CRITICAL: This allows the app to "read" your google-services.json
+    id 'com.google.gms.google-services' 
 }
 
 android {
@@ -24,7 +26,6 @@ android {
         }
     }
 
-    // FIXES THE JVM-TARGET 1.8 vs 17 ERROR
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -43,34 +44,28 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.core:core-splashscreen:1.0.1'
 
-    // Networking & Injection (CRITICAL FOR THE VPN)
-    // OkHttp handles the WebSocket handshake and the "Host" header injection
+    // Networking (VPN Core)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    // Okio is used for fast data streaming between the phone and VPS
     implementation("com.squareup.okio:okio:3.6.0")
-    // Gson for reading any configuration files from your server
     implementation 'com.google.code.gson:gson:2.10.1'
 
-    // Ads & Rewards (For earning MBs)
+    // Ads & Rewards
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
     
-    // Local Storage (To save if the user is on Safaricom or Airtel manually)
+    // Local Storage
     implementation 'androidx.preference:preference-ktx:1.2.1'
 
-    // Kotlin Standard Library
+    // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
+
+    // Firebase (Using BoM for version harmony)
+    implementation platform('com.google.firebase:firebase-bom:33.1.0')
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-installations'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    
-    // Firebase BoM (Bill of Materials)
-    implementation platform('com.google.firebase:firebase-bom:33.1.0')
-    
-    // Core dependencies for "No-Login" security
-    implementation 'com.google.firebase:firebase-auth'
-    implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-installations'
-
 }
