@@ -11,11 +11,14 @@
         android:allowBackup="true"
         android:icon="@drawable/app_logo"
         android:label="SweetDataVPN"
-        android:theme="@style/Theme.AppCompat.NoActionBar">
+        <!-- CHANGE 1: Use the Starting theme here -->
+        android:theme="@style/Theme.App.Starting">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            <!-- CHANGE 2: Ensure the Activity also uses the Starting theme -->
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -31,7 +34,6 @@
             </intent-filter>
         </service>
 
-        <!-- SweetDataVPN Real AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-2344867686796379~2770827433"/>
