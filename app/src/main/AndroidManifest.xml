@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Required for Android 14+ VPN Services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- Recommended for VPN status -->
 
     <application
         android:allowBackup="true"
@@ -15,16 +16,29 @@
         android:label="SweetDataVPN"
         android:theme="@style/Theme.App.Starting">
 
+        <!-- MAIN ENTRY POINT -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.App.Starting">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- TASKS SCREEN (Fixed Crash) -->
+        <activity
+            android:name=".TasksActivity"
+            android:exported="false"
+            android:label="Tasks" />
+
+        <!-- SUBSCRIPTION SCREEN (Fixed Crash) -->
+        <activity
+            android:name=".SubscriptionActivity"
+            android:exported="false"
+            android:label="Store" />
+
+        <!-- VPN CORE SERVICE -->
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
@@ -33,11 +47,9 @@
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
-            <meta-data
-                android:name="android.app.foreground_service_type"
-                android:value="specialUse" />
         </service>
 
+        <!-- GOOGLE ADS CONFIG -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-2344867686796379~2770827433"/>
