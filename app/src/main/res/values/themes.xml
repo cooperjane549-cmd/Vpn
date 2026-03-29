@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 1. Give your theme a unique name (e.g., Theme.Matcha) -->
-    <style name="Theme.Matcha" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- 1. The Main App Theme (Post-Splash) -->
+    <!-- Renamed to Theme.SweetDataVPN to stop the circular crash -->
+    <style name="Theme.SweetDataVPN" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Brand Colors -->
         <item name="colorPrimary">#FF0033</item>
         <item name="android:statusBarColor">#090909</item>
-        <!-- Add this to ensure Material Components work correctly -->
+        
+        <!-- Essential Material Settings -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
 
-    <!-- 2. Splash Screen Theme -->
+    <!-- 2. The Starting/Splash Theme -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo</item>
         <item name="windowSplashScreenBackground">#090909</item>
-        <!-- 3. Point this to your NEW unique name -->
-        <item name="postSplashScreenTheme">@style/Theme.Matcha</item>
+        <!-- 3. Points to the correct Main Theme above -->
+        <item name="postSplashScreenTheme">@style/Theme.SweetDataVPN</item>
     </style>
 </resources>
