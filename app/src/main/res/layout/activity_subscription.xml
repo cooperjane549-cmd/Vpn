@@ -20,6 +20,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="20dp"/>
 
+        <!-- Referral Section (Untouched) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -54,6 +55,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- PayPal Section (Untouched) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardPaypal"
             android:layout_width="match_parent"
@@ -82,6 +84,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- M-Pesa Info Section (Untouched) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardMpesa"
             android:layout_width="match_parent"
@@ -108,11 +111,53 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- NEW FEATURE: M-Pesa Message Paste Box -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Instant Verification"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"/>
+                <EditText
+                    android:id="@+id/etMpesaMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="100dp"
+                    android:layout_marginTop="10dp"
+                    android:background="#33FFFFFF"
+                    android:gravity="top|start"
+                    android:hint="Paste M-Pesa Message Here..."
+                    android:padding="10dp"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#80FFFFFF"
+                    android:textSize="14sp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVerifyPayment"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="NOTIFY ADMIN NOW"
+                    app:backgroundTint="#22C55E" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Original Contact Admin Button (Restored) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnContactAdmin"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:text="SEND SCREENSHOT TO ADMIN"
             app:backgroundTint="#25D366"
             app:cornerRadius="12dp" />
