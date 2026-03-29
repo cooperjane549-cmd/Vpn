@@ -5,19 +5,19 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Required for Android 14+ VPN Services -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/app_logo"
         android:label="SweetDataVPN"
-        <!-- CHANGE 1: Use the Starting theme here -->
         android:theme="@style/Theme.App.Starting">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            <!-- CHANGE 2: Ensure the Activity also uses the Starting theme -->
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -28,10 +28,14 @@
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="specialUse"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.foreground_service_type"
+                android:value="specialUse" />
         </service>
 
         <meta-data
