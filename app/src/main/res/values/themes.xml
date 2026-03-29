@@ -5,8 +5,12 @@
     <style name="Theme.SweetDataVPN" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Brand Colors -->
         <item name="colorPrimary">#FF0033</item>
+        <item name="colorOnPrimary">#FFFFFF</item> <!-- FIX: Makes button text/icons WHITE -->
         <item name="android:statusBarColor">#090909</item>
         
+        <!-- FIX: Forces buttons to show the Red color clearly -->
+        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+
         <!-- Essential Material Settings -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
