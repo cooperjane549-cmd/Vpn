@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,7 +22,7 @@ class SubscriptionActivity : AppCompatActivity() {
     private lateinit var userReferralCode: String
     private val client = OkHttpClient()
 
-    // Your Telegram Credentials
+    // Telegram Credentials
     private val botToken = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val adminChatId = "6847108451"
 
@@ -28,72 +30,88 @@ class SubscriptionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_subscription)
 
-        // Generate or Retrieve Referral Code (Persistent for the session)
+        // Generate Referral Code
         userReferralCode = UUID.randomUUID().toString().substring(0, 8).uppercase()
-        findViewById<TextView>(R.id.tvReferralCode).text = "Your ID: $userReferralCode"
+        findViewById<TextView>(R.id.tvReferralCode).text = "Your Code: $userReferralCode"
 
-        // 1. PayPal (Direct Link)
+        // New: Find the Paste M-Pesa EditText (Ensure this ID is in your XML)
+        val etMpesaMessage = findViewById<EditText>(R.id.etMpesaMessage)
+        val btnVerifyPayment = findViewById<MaterialButton>(R.id.btnVerifyPayment)
+
+        // 1. PayPal Payment Click
         findViewById<MaterialCardView>(R.id.cardPaypal).setOnClickListener {
-            notifyTelegram("User $userReferralCode clicked PayPal link")
             val paypalUrl = "https://www.paypal.com/ncp/payment/ADJDGV25FGBP4"
+            notifyTelegram("💳 PAYPAL INITIATED\nUser ID: $userReferralCode")
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(paypalUrl)))
         }
 
-        // 2. M-Pesa (Automated Copy + Telegram Alert + Open M-Pesa)
+        // 2. M-Pesa Click (Copy Till + Open App)
         findViewById<MaterialCardView>(R.id.cardMpesa).setOnClickListener {
             val tillNumber = "3043489"
-            
-            // Copy to clipboard
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Till", tillNumber))
+            val clip = ClipData.newPlainText("Till Number", tillNumber)
+            clipboard.setPrimaryClip(clip)
             
-            // Alert Admin via Telegram
-            notifyTelegram("🚨 PAYMENT INITIATED\nUser ID: $userReferralCode\nMethod: M-Pesa\nTill: $tillNumber\nStatus: Waiting for screenshot")
+            Toast.makeText(this, "Till $tillNumber copied. Opening M-Pesa...", Toast.LENGTH_LONG).show()
 
-            Toast.makeText(this, "Till $tillNumber copied! Opening M-Pesa...", Toast.LENGTH_LONG).show()
-
-            // Try to open Safaricom/M-Pesa App
             try {
-                val launchIntent = packageManager.getLaunchIntentForPackage("com.safaricom.mpesa.orgapp")
-                if (launchIntent != null) {
-                    startActivity(launchIntent)
-                } else {
-                    // Fallback to Sim Toolkit dialer (Kenya specific)
-                    val simToolKit = Intent(Intent.ACTION_VIEW, Uri.parse("tel:*334#"))
-                    startActivity(simToolKit)
-                }
+                val intent = packageManager.getLaunchIntentForPackage("com.safaricom.mpesa.orgapp")
+                if (intent != null) startActivity(intent) else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("tel:*334#")))
             } catch (e: Exception) {
-                Toast.makeText(this, "Please open M-Pesa and pay to Till $tillNumber", Toast.LENGTH_SHORT).show()
+                // Fallback if no app found
             }
         }
 
-        // 3. Share Referral
+        // 3. NEW: Verify M-Pesa Message Logic
+        btnVerifyPayment.setOnClickListener {
+            val message = etMpesaMessage.text.toString().trim()
+            if (message.length > 20) {
+                notifyTelegram("✅ PAYMENT SUBMITTED\nUser ID: $userReferralCode\nMessage: $message")
+                Toast.makeText(this, "Payment details sent to Admin for approval!", Toast.LENGTH_LONG).show()
+                etMpesaMessage.setText("") // Clear after sending
+            } else {
+                Toast.makeText(this, "Please paste the full M-Pesa message", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 4. Share Referral to WhatsApp
         findViewById<MaterialButton>(R.id.btnShareReferral).setOnClickListener {
-            val shareMsg = "Get fast internet with SweetData VPN! Use code: $userReferralCode. Download: https://sweetdata.cam"
+            val shareMsg = "Get fast internet with SweetData VPN! Use my code: $userReferralCode. Download here: https://sweetdata.cam"
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, shareMsg)
             }
-            startActivity(Intent.createChooser(intent, "Share via"))
+            try {
+                intent.`package` = "com.whatsapp"
+                startActivity(intent)
+            } catch (e: Exception) {
+                startActivity(Intent.createChooser(intent, "Share via"))
+            }
         }
 
-        // 4. Contact Admin (WhatsApp - The "Manual" Verification Step)
+        // 5. Contact Admin (WhatsApp)
         findViewById<MaterialButton>(R.id.btnContactAdmin).setOnClickListener {
-            val phone = "+254789574046"
-            val msg = "Hello Admin, I have paid. My ID is $userReferralCode. Please activate my VIP."
+            val phone = "+254789574046" 
+            val msg = "Hello Admin, I paid for VIP. ID: $userReferralCode"
             val url = "https://api.whatsapp.com/send?phone=$phone&text=${Uri.encode(msg)}"
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
     }
 
-    // --- TELEGRAM BOT LOGIC ---
+    // --- TELEGRAM SENDING LOGIC ---
     private fun notifyTelegram(message: String) {
-        val url = "https://api.telegram.org/bot$botToken/sendMessage?chat_id=$adminChatId&text=${Uri.encode(message)}"
+        val url = "https://api.telegram.org/bot$botToken/sendMessage"
         
-        val request = Request.Builder().url(url).build()
+        val formBody = FormBody.Builder()
+            .add("chat_id", adminChatId)
+            .add("text", message)
+            .build()
+
+        val request = Request.Builder().url(url).post(formBody).build()
+
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("TelegramBot", "Failed to send: ${e.message}")
+                Log.e("Telegram", "Failed: ${e.message}")
             }
             override fun onResponse(call: Call, response: Response) {
                 response.close()
