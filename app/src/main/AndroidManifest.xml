@@ -6,14 +6,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Required for Android 14+ VPN Services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- Recommended for VPN status -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/app_logo"
-        android:label="SweetDataVPN"
+        android:label="SweetData VPN"
         android:theme="@style/Theme.App.Starting">
 
         <!-- MAIN ENTRY POINT -->
@@ -26,17 +27,17 @@
             </intent-filter>
         </activity>
 
-        <!-- TASKS SCREEN (Fixed Crash) -->
+        <!-- TASKS SCREEN -->
         <activity
             android:name=".TasksActivity"
             android:exported="false"
-            android:label="Tasks" />
+            android:label="SweetData Tasks" />
 
-        <!-- SUBSCRIPTION SCREEN (Fixed Crash) -->
+        <!-- SUBSCRIPTION SCREEN -->
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false"
-            android:label="Store" />
+            android:label="SweetData Store" />
 
         <!-- VPN CORE SERVICE -->
         <service
@@ -47,6 +48,10 @@
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+            <!-- CRITICAL: Android 14 requirement for specialUse type -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_F_S_TYPE"
+                android:value="VPN connectivity for SweetData tunneling" />
         </service>
 
         <!-- GOOGLE ADS CONFIG -->
