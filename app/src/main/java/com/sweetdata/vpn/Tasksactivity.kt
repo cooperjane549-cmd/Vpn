@@ -11,6 +11,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.button.MaterialButton
@@ -22,9 +24,15 @@ import java.util.*
 class TasksActivity : AppCompatActivity() {
 
     private var rewardedAd: RewardedAd? = null
+    private var interstitialAd: InterstitialAd? = null
+    
     private val client = OkHttpClient()
     private val PREFS_NAME = "SweetDataPrefs"
     
+    // Ad IDs
+    private val REWARDED_ID = "ca-app-pub-3940256099942544/5224354917" // Test ID (Replace with yours later)
+    private val INTERSTITIAL_ID = "ca-app-pub-2344867686796379/4612206920" // Your New ID
+
     // Admin Credentials
     private val botToken = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val adminChatId = "6847108451"
@@ -33,7 +41,8 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        loadRewardedAd()
+        // Initial Ad Pull (Pre-loader)
+        pullAdsFromServer()
         updateAdProgressUI()
 
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
@@ -46,12 +55,12 @@ class TasksActivity : AppCompatActivity() {
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
-        // 1. WATCH 6 ADS LOGIC
+        // 1. WATCH AD LOGIC (Using Interstitial as per your request)
         btnWatchAd.setOnClickListener {
-            showRewardedAd()
+            triggerAdSequence()
         }
 
-        // 2. CREATE TASK - VALIDATION & SHOW PAYMENT
+        // 2. CREATE TASK - VALIDATION
         btnPayForTask.setOnClickListener {
             if (etTitle.text.isBlank() || etDesc.text.isBlank() || etLink.text.isBlank()) {
                 Toast.makeText(this, "Please fill all fields first!", Toast.LENGTH_SHORT).show()
@@ -61,30 +70,57 @@ class TasksActivity : AppCompatActivity() {
             }
         }
 
-        // 3. SUBMIT TASK TO ADMIN (Telegram)
+        // 3. SUBMIT TO TELEGRAM
         btnSubmitTask.setOnClickListener {
             val msg = etPaymentMsg.text.toString().trim()
             if (msg.length < 15) {
                 Toast.makeText(this, "Please paste a valid M-Pesa/PayPal message", Toast.LENGTH_SHORT).show()
             } else {
-                val taskData = """
-                    🆕 NEW TASK REQUEST (1200 LIMIT)
-                    Title: ${etTitle.text}
-                    Desc: ${etDesc.text}
-                    Link: ${etLink.text}
-                    Payment Proof: $msg
-                """.trimIndent()
-                
+                val taskData = "🆕 NEW TASK REQUEST\nTitle: ${etTitle.text}\nLink: ${etLink.text}\nProof: $msg"
                 notifyAdminViaTelegram(taskData)
-                Toast.makeText(this, "Task submitted! Admin will approve shortly.", Toast.LENGTH_LONG).show()
-                finish() // Close activity
+                Toast.makeText(this, "Submitted! Admin will verify.", Toast.LENGTH_LONG).show()
+                finish()
             }
         }
 
-        // Support Click
         findViewById<TextView>(R.id.tvSupport).setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
-            startActivity(intent)
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626")))
+        }
+    }
+
+    // THE PULLER: Always keeps ads ready in background
+    private fun pullAdsFromServer() {
+        val adRequest = AdRequest.Builder().build()
+
+        // Pull Interstitial
+        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) { interstitialAd = ad }
+            override fun onAdFailedToLoad(adError: LoadAdError) { interstitialAd = null }
+        })
+
+        // Pull Rewarded (Secondary buffer)
+        RewardedAd.load(this, REWARDED_ID, adRequest, object : RewardedAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedAd) { rewardedAd = ad }
+            override fun onAdFailedToLoad(adError: LoadAdError) { rewardedAd = null }
+        })
+    }
+
+    private fun triggerAdSequence() {
+        if (interstitialAd != null) {
+            interstitialAd?.show(this)
+            // Immediately start pulling the NEXT ad while user watches this one
+            interstitialAd = null 
+            handleAdReward() // Count the view
+            pullAdsFromServer() 
+        } else if (rewardedAd != null) {
+            rewardedAd?.show(this) { 
+                handleAdReward()
+                pullAdsFromServer()
+            }
+            rewardedAd = null
+        } else {
+            Toast.makeText(this, "Pulling new ads... please try again in 5s", Toast.LENGTH_SHORT).show()
+            pullAdsFromServer() // Force a retry pull
         }
     }
 
@@ -94,10 +130,7 @@ class TasksActivity : AppCompatActivity() {
         val lastDay = prefs.getInt("last_ad_day", -1)
         var count = prefs.getInt("ad_count", 0)
 
-        if (today != lastDay) {
-            count = 0
-            prefs.edit().putInt("last_ad_day", today).apply()
-        }
+        if (today != lastDay) { count = 0; prefs.edit().putInt("last_ad_day", today).apply() }
 
         count++
         if (count >= 6) {
@@ -105,11 +138,10 @@ class TasksActivity : AppCompatActivity() {
             prefs.edit().apply {
                 putLong("expiry_time", System.currentTimeMillis() + threeHours)
                 putInt("ad_count", 0)
-                putBoolean("force_vpn", true) // Tells the VPN it CANNOT be stopped
+                putBoolean("force_vpn", true)
                 apply()
             }
-            Toast.makeText(this, "3 Hours Force-Unlocked!", Toast.LENGTH_LONG).show()
-            // Launch VPN directly
+            Toast.makeText(this, "3 Hours UNLIMITED Unlocked!", Toast.LENGTH_LONG).show()
             startService(Intent(this, MyVpnService::class.java)) 
         } else {
             prefs.edit().putInt("ad_count", count).apply()
@@ -124,34 +156,11 @@ class TasksActivity : AppCompatActivity() {
     }
 
     private fun notifyAdminViaTelegram(message: String) {
-        val url = "https://api.telegram.org/bot$botToken/sendMessage"
-        val body = FormBody.Builder()
-            .add("chat_id", adminChatId)
-            .add("text", message)
-            .build()
-        val request = Request.Builder().url(url).post(body).build()
+        val body = FormBody.Builder().add("chat_id", adminChatId).add("text", message).build()
+        val request = Request.Builder().url("https://api.telegram.org/bot$botToken/sendMessage").post(body).build()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) { response.close() }
         })
-    }
-
-    private fun loadRewardedAd() {
-        val adRequest = AdRequest.Builder().build()
-        // Replace with your real ID: ca-app-pub-2344867686796379/XXXXXXXXXX
-        RewardedAd.load(this, "ca-app-pub-3940256099942544/5224354917", adRequest,
-            object : RewardedAdLoadCallback() {
-                override fun onAdLoaded(ad: RewardedAd) { rewardedAd = ad }
-                override fun onAdFailedToLoad(adError: LoadAdError) { rewardedAd = null }
-            })
-    }
-
-    private fun showRewardedAd() {
-        rewardedAd?.let { ad ->
-            ad.show(this) { 
-                handleAdReward()
-                loadRewardedAd() 
-            }
-        } ?: Toast.makeText(this, "Ad not ready...", Toast.LENGTH_SHORT).show()
     }
 }
