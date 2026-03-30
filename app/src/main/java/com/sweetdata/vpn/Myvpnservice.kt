@@ -22,14 +22,25 @@ class MyVpnService : VpnService() {
     private val vpsIp = "62.169.23.118"
     private val vpsPort = 443
     private val vpsPath = "/sweetdata"
-    private val mtuSize = 1400
+    private val mtuSize = 1500 
+    
+    // Your VLESS UUID for Authentication
+    private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // --- DUAL BUG HOSTS ---
     private val SAFARICOM_BUG = "www.safaricom.co.ke"
     private val AIRTEL_BUG = "www.airtel.co.ke"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        val isForceOn = prefs.getBoolean("force_vpn", false)
+        val expiryTime = prefs.getLong("expiry_time", 0L)
+        val currentTime = System.currentTimeMillis()
+
         if (intent?.action == "STOP") {
+            if (isForceOn && currentTime < expiryTime) {
+                Log.d("SweetData", "STOP Ignored: 3hr Reward Active")
+                return START_STICKY 
+            }
             stopVpn()
             return START_NOT_STICKY
         }
@@ -47,6 +58,7 @@ class MyVpnService : VpnService() {
                 .addAddress("10.0.0.2", 24)
                 .addRoute("0.0.0.0", 0)
                 .addDnsServer("8.8.8.8")
+                .addDnsServer("1.1.1.1") 
                 .setMtu(mtuSize)
 
             vpnInterface = builder.establish()
@@ -64,8 +76,6 @@ class MyVpnService : VpnService() {
     private fun detectNetworkAndGetBug(): String {
         val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val operatorName = telephonyManager.networkOperatorName.lowercase()
-
-        // Check user preference first, fallback to auto-detect
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
         val savedNetwork = prefs.getString("selected_network", null)
 
@@ -79,17 +89,23 @@ class MyVpnService : VpnService() {
 
     private fun startInjectorTunnel(selectedBug: String) {
         val client = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)
+            .writeTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
         val request = Request.Builder()
             .url("ws://$vpsIp:$vpsPort$vpsPath")
             .header("Host", selectedBug)
+            .header("Upgrade", "websocket")
+            .header("Connection", "Upgrade")
+            // VLESS Auth Header
+            .header("Sec-WebSocket-Protocol", vlessUuid)
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("SweetData", "Connected via $selectedBug")
+                Log.d("SweetData", "VLESS Active via $selectedBug")
                 Thread { transferData() }.start()
             }
 
@@ -97,15 +113,22 @@ class MyVpnService : VpnService() {
                 try {
                     val output = FileOutputStream(vpnInterface?.fileDescriptor)
                     output.write(bytes.toByteArray())
-                    // Optional: You can also subtract balance on Download, but 
-                    // most injectors only track Upload to save CPU/Battery.
                 } catch (e: Exception) {
-                    Log.e("SweetData", "Download Error: ${e.message}")
+                    Log.e("SweetData", "Stream Error: ${e.message}")
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                stopVpn()
+                Log.e("SweetData", "Tunnel Failure: ${t.message}")
+                
+                // Auto-reconnect if 3-hour unlimited is active
+                if (isUnlimitedActive() && running) {
+                    Log.d("SweetData", "Reconnecting in 5s...")
+                    Thread.sleep(5000)
+                    startInjectorTunnel(selectedBug)
+                } else {
+                    stopVpn()
+                }
             }
         })
     }
@@ -118,14 +141,12 @@ class MyVpnService : VpnService() {
             while (running) {
                 val length = input.read(buffer)
                 if (length > 0) {
-                    
-                    // --- DATA TRACKING & DRAIN LOGIC ---
-                    if (!updateLocalBalance(length)) {
-                        Log.d("SweetData", "Balance empty. Killing tunnel.")
-                        stopVpn()
-                        break
+                    if (!isUnlimitedActive()) {
+                        if (!updateLocalBalance(length)) {
+                            stopVpn()
+                            break
+                        }
                     }
-                    
                     val data = buffer.copyOfRange(0, length)
                     webSocket?.send(data.toByteString())
                 }
@@ -135,19 +156,24 @@ class MyVpnService : VpnService() {
         }
     }
 
-    /**
-     * Updates the MB balance in SharedPreferences.
-     * Returns true if balance is > 0, false if empty.
-     */
+    private fun isUnlimitedActive(): Boolean {
+        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        val isForceOn = prefs.getBoolean("force_vpn", false)
+        val expiryTime = prefs.getLong("expiry_time", 0L)
+        
+        if (isForceOn && System.currentTimeMillis() > expiryTime) {
+            prefs.edit().putBoolean("force_vpn", false).apply()
+            return false
+        }
+        return isForceOn
+    }
+
     private fun updateLocalBalance(bytesSent: Int): Boolean {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
-        val currentBalanceInBytes = prefs.getLong("byte_balance", -1L)
+        var balance = prefs.getLong("byte_balance", -1L)
         
-        // If it's the first time, convert MB to Bytes for accuracy
-        var balance = if (currentBalanceInBytes == -1L) {
-            prefs.getInt("mb_balance", 0).toLong() * 1024 * 1024
-        } else {
-            currentBalanceInBytes
+        if (balance == -1L) {
+            balance = prefs.getInt("mb_balance", 0).toLong() * 1024 * 1024
         }
 
         balance -= bytesSent
@@ -157,10 +183,7 @@ class MyVpnService : VpnService() {
             return false
         }
 
-        // Save the high-precision byte balance
         prefs.edit().putLong("byte_balance", balance).apply()
-        
-        // Update the MB balance for the UI display (every 1MB)
         val mbDisplay = (balance / (1024 * 1024)).toInt()
         prefs.edit().putInt("mb_balance", mbDisplay).apply()
         
