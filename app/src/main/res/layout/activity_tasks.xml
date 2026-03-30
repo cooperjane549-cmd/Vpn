@@ -1,34 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="20dp"
     android:background="#090909">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="EARN MB DATA"
-        android:textColor="#FF0033"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnWatchAd"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
-        android:text="WATCH AD (5MB)"
-        app:backgroundTint="#22C55E" />
+        android:orientation="vertical"
+        android:padding="20dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnCreateTask"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="CREATE PAID TASK (KSh 450)"
-        app:backgroundTint="#FF0033" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TASKS &amp; REWARDS"
+            android:textColor="#FF0033"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
-</LinearLayout>
+        <!-- SECTION 1: WATCH 6 ADS FOR 3HRS -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🚀 UNLOCK 3HRS UNLIMITED"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/tvAdProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Progress: 0/6 Ads Watched"
+                    android:textColor="#9CA3AF"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnWatchAd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="WATCH AD TO UNLOCK"
+                    app:backgroundTint="#22C55E" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SECTION 2: CREATE TASK FORM -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PROMOTE YOUR PAGE"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="30dp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                
+                <EditText
+                    android:id="@+id/etTaskTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Task Title (e.g. Follow my TikTok)"
+                    android:textColorHint="#80FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#80FFFFFF"/>
+
+                <EditText
+                    android:id="@+id/etTaskDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Description (What should user do?)"
+                    android:textColorHint="#80FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="#80FFFFFF"/>
+
+                <EditText
+                    android:id="@+id/etTaskLink"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Link (Facebook/TikTok URL)"
+                    android:textColorHint="#80FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="#80FFFFFF"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Limit: 1,200 Users will complete this."
+                    android:textColor="#FFBB00"
+                    android:textSize="12sp"
+                    android:layout_marginTop="10dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPayForTask"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="15dp"
+                    android:text="PAY KSH 450 / $5"
+                    app:backgroundTint="#FF0033" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SECTION 3: M-PESA PASTE FOR TASKS -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTaskPayment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="#22FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Confirm Payment (Till: 3043489)"
+                    android:textColor="#22C55E"/>
+                <EditText
+                    android:id="@+id/etTaskPaymentMsg"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:hint="Paste M-Pesa/PayPal Msg here"
+                    android:textColor="#FFFFFF"
+                    android:background="#33FFFFFF"
+                    android:layout_marginTop="10dp"
+                    android:padding="8dp"/>
+                <Button
+                    android:id="@+id/btnSubmitTaskToAdmin"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="SUBMIT FOR APPROVAL"
+                    android:layout_topMargin="10dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SECTION 4: CUSTOMER CARE & TERMS -->
+        <TextView
+            android:id="@+id/tvSupport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Support: 0799978626 (WhatsApp)"
+            android:textColor="#25D366"
+            android:textAlignment="center"
+            android:layout_marginTop="30dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="By paying, you agree that tasks are verified manually. No refunds for invalid links. 1,200 users max per task."
+            android:textColor="#66FFFFFF"
+            android:textSize="10sp"
+            android:textAlignment="center"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="30dp"/>
+
+    </LinearLayout>
+</ScrollView>
