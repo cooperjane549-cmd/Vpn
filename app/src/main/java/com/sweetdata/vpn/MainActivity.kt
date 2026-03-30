@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -22,7 +21,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.installations.FirebaseInstallations
-import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,14 +40,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 1. Splash Screen
-        val splashScreen = installSplashScreen()
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // 2. MANUAL FIREBASE INITIALIZATION (Restored Exactly)
+        // 2. MANUAL FIREBASE INITIALIZATION (SweetData VPN Project)
         val options = FirebaseOptions.Builder()
             .setApplicationId("1:1085998005937:android:8451888af22059a9942c90")
             .setProjectId("sweetdatavpn")
-            .setApiKey("AIzaSyB..." ) // Ensure your full key is here
+            .setApiKey("AIzaSyB...") // Replace with your actual full key
             .setDatabaseUrl("https://sweetdatavpn-default-rtdb.firebaseio.com")
             .build()
 
@@ -76,17 +74,15 @@ class MainActivity : AppCompatActivity() {
         // 5. Initial UI Update
         updateBalanceUI()
 
-        // 6. Network Selection Logic (Mapped to Safe Names: Kevin/Sherwin)
+        // 6. Network Selection Logic (Kevin/Sherwin)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                
-                // MAPPING: UI calls them Kevin/Sherwin, Code uses Safaricom/Airtel for VPN logic
                 val technicalNetwork = if (checkedId == R.id.btnSafaricom) "Safaricom" else "Airtel"
                 val displayName = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
                 
                 prefs.edit().putString("selected_network", technicalNetwork).apply()
-                Toast.makeText(this, "Network set to $displayName", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "SweetData: $displayName Selected", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -99,36 +95,38 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 8. Navigation Buttons (RE-LINKED TO ACTIVITIES)
+        // 8. Navigation Buttons (LINKED TO SUBSCRIPTION ACTIVITY)
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
-            // Now opens the dedicated Tasks screen instead of just an ad
             val intent = Intent(this, TasksActivity::class.java)
             startActivity(intent)
         }
 
         findViewById<MaterialButton>(R.id.btnStore).setOnClickListener {
-            // Now opens the dedicated Store/Marketplace screen
-            val intent = Intent(this, StoreActivity::class.java)
+            // UPDATED: Now correctly points to SubscriptionActivity
+            val intent = Intent(this, SubscriptionActivity::class.java)
             startActivity(intent)
         }
     }
 
-    // --- ACCESS LOGIC (SYNCED WITH TASKS ACTIVITY) ---
+    // --- ACCESS LOGIC (CHECKS FOR VIP OR TASK TIME) ---
 
     private fun checkAccessAndStart() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
         val isSubscribed = prefs.getBoolean("is_subscribed", false)
 
+        // If user is VIP or has active Ad-time
         if (isSubscribed || System.currentTimeMillis() < expiry) {
             startVpnProcess()
         } else {
-            // Inform user to go to the Tasks screen we linked above
-            Toast.makeText(this, "Please go to TASKS to unlock 3hrs access", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Need Access? Watch Ads or Get VIP in Store", Toast.LENGTH_LONG).show()
+            // Optional: Auto-open the subscription page if they have no access
+            val intent = Intent(this, SubscriptionActivity::class.java)
+            startActivity(intent)
         }
     }
 
-    // --- FIREBASE ANTI-CHEAT LOGIC (Untouched/Restored) ---
+    // --- FIREBASE ANTI-CHEAT LOGIC ---
 
     private fun signInSilently() {
         auth.signInAnonymously().addOnCompleteListener(this) { task ->
@@ -155,15 +153,19 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val count = prefs.getInt("ad_count", 0)
         val expiry = prefs.getLong("expiry_time", 0)
+        val isSubscribed = prefs.getBoolean("is_subscribed", false)
         
-        // Show current ad progress on the balance text view
-        tvBalance.text = "Ads: $count/6"
-        
-        if (System.currentTimeMillis() < expiry) {
+        if (isSubscribed) {
+            tvBalance.text = "VIP Status: UNLIMITED"
+            tvStatus.text = "SWEETDATA VIP ACTIVE"
+            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_light))
+        } else if (System.currentTimeMillis() < expiry) {
             val remaining = (expiry - System.currentTimeMillis()) / (60 * 1000)
-            tvStatus.text = "TRIAL ACTIVE: ${remaining}m"
+            tvBalance.text = "Trial: ${remaining} min left"
+            tvStatus.text = "READY TO CONNECT"
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_light))
         } else {
+            tvBalance.text = "Ads: $count/6 Watched"
             tvStatus.text = "DISCONNECTED"
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.white))
         }
@@ -190,7 +192,7 @@ class MainActivity : AppCompatActivity() {
         startService(serviceIntent)
         isVpnRunning = true
         btnConnect.text = "STOP TUNNEL"
-        tvStatus.text = "CONNECTED"
+        tvStatus.text = "TUNNEL CONNECTED"
         tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light))
     }
 
@@ -204,7 +206,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
-        // Using your Provided ID
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
@@ -214,7 +215,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh UI whenever user returns from Tasks/Store
-        updateBalanceUI()
+        updateBalanceUI() // Refresh whenever user returns to SweetData VPN
     }
 }
