@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -44,11 +45,11 @@ class MainActivity : AppCompatActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // 2. MANUAL FIREBASE INITIALIZATION (Restored)
+        // 2. MANUAL FIREBASE INITIALIZATION (Restored Exactly)
         val options = FirebaseOptions.Builder()
             .setApplicationId("1:1085998005937:android:8451888af22059a9942c90")
             .setProjectId("sweetdatavpn")
-            .setApiKey("AIzaSyB..." ) 
+            .setApiKey("AIzaSyB..." ) // Ensure your full key is here
             .setDatabaseUrl("https://sweetdatavpn-default-rtdb.firebaseio.com")
             .build()
 
@@ -75,13 +76,17 @@ class MainActivity : AppCompatActivity() {
         // 5. Initial UI Update
         updateBalanceUI()
 
-        // 6. Network Selection Logic (Updated with Kevin/Sherwin naming)
+        // 6. Network Selection Logic (Mapped to Safe Names: Kevin/Sherwin)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val network = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
-                prefs.edit().putString("selected_network", network).apply()
-                Toast.makeText(this, "Network set to $network", Toast.LENGTH_SHORT).show()
+                
+                // MAPPING: UI calls them Kevin/Sherwin, Code uses Safaricom/Airtel for VPN logic
+                val technicalNetwork = if (checkedId == R.id.btnSafaricom) "Safaricom" else "Airtel"
+                val displayName = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
+                
+                prefs.edit().putString("selected_network", technicalNetwork).apply()
+                Toast.makeText(this, "Network set to $displayName", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -94,54 +99,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 8. Navigation Buttons (Fixed Intents)
+        // 8. Navigation Buttons (RE-LINKED TO ACTIVITIES)
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
-            // Logic for watching ads to unlock 3 hours
-            showRewardAd()
+            // Now opens the dedicated Tasks screen instead of just an ad
+            val intent = Intent(this, TasksActivity::class.java)
+            startActivity(intent)
         }
 
         findViewById<MaterialButton>(R.id.btnStore).setOnClickListener {
-            val intent = Intent(this, SubscriptionActivity::class.java)
+            // Now opens the dedicated Store/Marketplace screen
+            val intent = Intent(this, StoreActivity::class.java)
             startActivity(intent)
         }
     }
 
-    // --- ACCESS LOGIC (6 ADS = 3 HOURS) ---
-
-    private fun showRewardAd() {
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    processAdReward()
-                    loadInterstitial()
-                }
-            }
-            mInterstitialAd?.show(this)
-        } else {
-            Toast.makeText(this, "Ad loading... try again.", Toast.LENGTH_SHORT).show()
-            loadInterstitial()
-        }
-    }
-
-    private fun processAdReward() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-        val lastDay = prefs.getInt("last_ad_day", -1)
-        var count = prefs.getInt("ad_count", 0)
-
-        if (today != lastDay) { count = 0; prefs.edit().putInt("last_ad_day", today).apply() }
-        
-        count++
-        if (count >= 6) {
-            val threeHours = 3 * 60 * 60 * 1000L
-            prefs.edit().putLong("expiry_time", System.currentTimeMillis() + threeHours).apply()
-            prefs.edit().putInt("ad_count", 0).apply()
-            Toast.makeText(this, "3 Hours Access Unlocked!", Toast.LENGTH_LONG).show()
-        } else {
-            prefs.edit().putInt("ad_count", count).apply()
-        }
-        updateBalanceUI()
-    }
+    // --- ACCESS LOGIC (SYNCED WITH TASKS ACTIVITY) ---
 
     private fun checkAccessAndStart() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -151,11 +123,12 @@ class MainActivity : AppCompatActivity() {
         if (isSubscribed || System.currentTimeMillis() < expiry) {
             startVpnProcess()
         } else {
-            Toast.makeText(this, "Please watch 6 ads for 3hrs access", Toast.LENGTH_LONG).show()
+            // Inform user to go to the Tasks screen we linked above
+            Toast.makeText(this, "Please go to TASKS to unlock 3hrs access", Toast.LENGTH_LONG).show()
         }
     }
 
-    // --- FIREBASE ANTI-CHEAT LOGIC (Untouched) ---
+    // --- FIREBASE ANTI-CHEAT LOGIC (Untouched/Restored) ---
 
     private fun signInSilently() {
         auth.signInAnonymously().addOnCompleteListener(this) { task ->
@@ -176,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- VPN & UI LOGIC (Updated to show Ad Count) ---
+    // --- VPN & UI LOGIC ---
 
     private fun updateBalanceUI() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -189,6 +162,10 @@ class MainActivity : AppCompatActivity() {
         if (System.currentTimeMillis() < expiry) {
             val remaining = (expiry - System.currentTimeMillis()) / (60 * 1000)
             tvStatus.text = "TRIAL ACTIVE: ${remaining}m"
+            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_light))
+        } else {
+            tvStatus.text = "DISCONNECTED"
+            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.white))
         }
     }
 
@@ -222,12 +199,12 @@ class MainActivity : AppCompatActivity() {
         startService(serviceIntent)
         isVpnRunning = false
         btnConnect.text = "START TUNNEL"
-        tvStatus.text = "DISCONNECTED"
-        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+        updateBalanceUI()
     }
 
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
+        // Using your Provided ID
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
@@ -237,6 +214,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Refresh UI whenever user returns from Tasks/Store
         updateBalanceUI()
     }
 }
