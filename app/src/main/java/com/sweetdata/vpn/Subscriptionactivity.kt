@@ -17,10 +17,9 @@ import com.google.android.material.card.MaterialCardView
 import okhttp3.*
 import java.io.IOException
 
-class StoreActivity : AppCompatActivity() {
+class SubscriptionActivity : AppCompatActivity() {
 
     // --- CONFIGURATION ---
-    // Your Telegram Bot Token and Chat ID pre-filled
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
     
@@ -28,16 +27,16 @@ class StoreActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_store)
+        // Correctly pointing to activity_subscription.xml
+        setContentView(R.layout.activity_subscription)
 
-        // 1. Get Device ID (Unique to this phone)
+        // 1. Get Device ID (Unique to this phone - Locked for SweetData VIP)
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
 
         // 2. Referral Logic (SweetData VPN Branded)
         val tvReferralCode = findViewById<TextView>(R.id.tvReferralCode)
         val btnShareReferral = findViewById<MaterialButton>(R.id.btnShareReferral)
         
-        // Use SD (SweetData) prefix for the referral code
         val myReferralCode = "SD-" + deviceId.takeLast(6).uppercase()
         tvReferralCode.text = "Your Code: $myReferralCode"
 
@@ -57,7 +56,7 @@ class StoreActivity : AppCompatActivity() {
             Toast.makeText(this, "Till 3043489 copied! Paste in M-Pesa", Toast.LENGTH_LONG).show()
         }
 
-        // 4. PayPal Card (Link to Web)
+        // 4. PayPal Card
         val cardPaypal = findViewById<MaterialCardView>(R.id.cardPaypal)
         cardPaypal.setOnClickListener {
             val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/5"))
@@ -74,7 +73,6 @@ class StoreActivity : AppCompatActivity() {
             if (paymentMsg.length < 15) {
                 Toast.makeText(this, "Please paste the full M-Pesa/PayPal message", Toast.LENGTH_SHORT).show()
             } else {
-                // Formatting the message for your Telegram Bot Admin
                 val adminReport = """
                     💎 *SWEETDATA VIP REQUEST* 💎
                     
@@ -95,7 +93,7 @@ class StoreActivity : AppCompatActivity() {
             }
         }
 
-        // 6. Contact Admin (WhatsApp)
+        // 6. Contact Admin (WhatsApp Support)
         findViewById<MaterialButton>(R.id.btnContactAdmin).setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
             startActivity(intent)
@@ -116,13 +114,13 @@ class StoreActivity : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread { 
-                    Toast.makeText(this@StoreActivity, "Submission Failed! Check Internet.", Toast.LENGTH_SHORT).show() 
+                    Toast.makeText(this@SubscriptionActivity, "Submission Failed! Check Internet.", Toast.LENGTH_SHORT).show() 
                 }
             }
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread {
-                    Toast.makeText(this@StoreActivity, "SweetData Admin Notified! Activating VIP soon.", Toast.LENGTH_LONG).show()
-                    finish() // Return to Home Screen
+                    Toast.makeText(this@SubscriptionActivity, "SweetData Admin Notified! Activating VIP soon.", Toast.LENGTH_LONG).show()
+                    finish() 
                 }
                 response.close()
             }
