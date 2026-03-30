@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -22,18 +21,16 @@ class SubscriptionActivity : AppCompatActivity() {
     // --- CONFIGURATION ---
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
-    
     private val client = OkHttpClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Correctly pointing to activity_subscription.xml
+        // Ensure the file is named activity_subscription.xml in your res/layout folder
         setContentView(R.layout.activity_subscription)
 
-        // 1. Get Device ID (Unique to this phone - Locked for SweetData VIP)
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
 
-        // 2. Referral Logic (SweetData VPN Branded)
+        // 1. Referral Section
         val tvReferralCode = findViewById<TextView>(R.id.tvReferralCode)
         val btnShareReferral = findViewById<MaterialButton>(R.id.btnShareReferral)
         
@@ -43,64 +40,45 @@ class SubscriptionActivity : AppCompatActivity() {
         btnShareReferral.setOnClickListener {
             val shareIntent = Intent(Intent.ACTION_SEND)
             shareIntent.type = "text/plain"
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "Get unlimited high-speed internet with SweetData VPN! Use my code $myReferralCode. Download here: [Your Play Store Link]")
-            startActivity(Intent.createChooser(shareIntent, "Share via"))
+            shareIntent.putExtra(Intent.EXTRA_TEXT, "Get SweetData VPN! Code: $myReferralCode")
+            startActivity(Intent.createChooser(shareIntent, "Share"))
         }
 
-        // 3. M-Pesa Card (Auto-Copy Till Number)
-        val cardMpesa = findViewById<MaterialCardView>(R.id.cardMpesa)
-        cardMpesa.setOnClickListener {
+        // 2. PayPal Section
+        findViewById<MaterialCardView>(R.id.cardPaypal).setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/5"))
+            startActivity(intent)
+        }
+
+        // 3. M-Pesa Section (Till Copy)
+        findViewById<MaterialCardView>(R.id.cardMpesa).setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("Till Number", "3043489")
+            val clip = ClipData.newPlainText("Till", "3043489")
             clipboard.setPrimaryClip(clip)
-            Toast.makeText(this, "Till 3043489 copied! Paste in M-Pesa", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Till 3043489 Copied!", Toast.LENGTH_SHORT).show()
         }
 
-        // 4. PayPal Card
-        val cardPaypal = findViewById<MaterialCardView>(R.id.cardPaypal)
-        cardPaypal.setOnClickListener {
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/5"))
-            startActivity(browserIntent)
-        }
-
-        // 5. VIP Verification Logic (Telegram Bot Integration)
+        // 4. Verification Logic
         val etMpesaMessage = findViewById<EditText>(R.id.etMpesaMessage)
-        val btnVerify = findViewById<MaterialButton>(R.id.btnVerifyPayment)
+        val btnVerifyPayment = findViewById<MaterialButton>(R.id.btnVerifyPayment)
 
-        btnVerify.setOnClickListener {
-            val paymentMsg = etMpesaMessage.text.toString().trim()
-            
-            if (paymentMsg.length < 15) {
-                Toast.makeText(this, "Please paste the full M-Pesa/PayPal message", Toast.LENGTH_SHORT).show()
+        btnVerifyPayment.setOnClickListener {
+            val msg = etMpesaMessage.text.toString().trim()
+            if (msg.length < 15) {
+                Toast.makeText(this, "Paste full M-Pesa message!", Toast.LENGTH_SHORT).show()
             } else {
-                val adminReport = """
-                    💎 *SWEETDATA VIP REQUEST* 💎
-                    
-                    *Device ID:* `$deviceId`
-                    *Referral Code:* $myReferralCode
-                    
-                    --------------------------
-                    📝 *PAYMENT MESSAGE:*
-                    $paymentMsg
-                    
-                    --------------------------
-                    *ACTION:* 
-                    Click to link this Device ID to VIP:
-                    https://your-backend-api.com/approve?id=$deviceId
-                """.trimIndent()
-                
-                sendToTelegram(adminReport)
+                val report = "💎 *SWEETDATA VIP REQUEST*\n\nID: `$deviceId`\n\nMsg: $msg"
+                sendToTelegram(report)
             }
         }
 
-        // 6. Contact Admin (WhatsApp Support)
+        // 5. Contact Admin
         findViewById<MaterialButton>(R.id.btnContactAdmin).setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
             startActivity(intent)
         }
     }
 
-    // --- TELEGRAM NETWORK FUNCTION ---
     private fun sendToTelegram(text: String) {
         val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
         val body = FormBody.Builder()
@@ -113,14 +91,12 @@ class SubscriptionActivity : AppCompatActivity() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { 
-                    Toast.makeText(this@SubscriptionActivity, "Submission Failed! Check Internet.", Toast.LENGTH_SHORT).show() 
-                }
+                runOnUiThread { Toast.makeText(this@SubscriptionActivity, "Fail", Toast.LENGTH_SHORT).show() }
             }
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread {
-                    Toast.makeText(this@SubscriptionActivity, "SweetData Admin Notified! Activating VIP soon.", Toast.LENGTH_LONG).show()
-                    finish() 
+                    Toast.makeText(this@SubscriptionActivity, "Sent to Admin!", Toast.LENGTH_LONG).show()
+                    finish()
                 }
                 response.close()
             }
