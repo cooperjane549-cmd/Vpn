@@ -20,6 +20,7 @@
             android:textStyle="bold" />
 
         <!-- SECTION 1: WATCH 6 ADS FOR 3HRS -->
+        <!-- Logic: Triggers triggerAdSequence() in TasksActivity -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -149,7 +150,6 @@
                     android:layout_marginTop="10dp"
                     android:padding="8dp"/>
 
-                <!-- FIXED: Changed layout_topMargin to layout_marginTop -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSubmitTaskToAdmin"
                     android:layout_width="match_parent"
@@ -159,7 +159,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- SECTION 4: CUSTOMER CARE & TERMS -->
+        <!-- SECTION 4: CUSTOMER CARE & SUPPORT -->
         <TextView
             android:id="@+id/tvSupport"
             android:layout_width="match_parent"
