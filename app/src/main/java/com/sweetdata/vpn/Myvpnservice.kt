@@ -31,7 +31,7 @@ class MyVpnService : VpnService() {
     )
 
     private val AIRTEL_BUGS = arrayOf(
-        "www.airtel.co.ke", "airtellive.com", "one.airtel.in", "airtelkenya.com"
+        "www.airtel.co.ke", "airtellive.com", "one.airtel.in", "airtelkenya.com", "v.whatsapp.net"
     )
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
