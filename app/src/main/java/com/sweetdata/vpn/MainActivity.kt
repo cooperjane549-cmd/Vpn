@@ -1,92 +1,80 @@
 package com.sweetdata.vpn
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.installations.FirebaseInstallations
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.database.*
 
 class MainActivity : AppCompatActivity() {
 
-    // UI Elements
     private lateinit var btnConnect: MaterialButton
     private lateinit var tvStatus: TextView
     private lateinit var tvBalance: TextView
     private lateinit var toggleNetwork: MaterialButtonToggleGroup
     
-    // Logic Variables
     private var mInterstitialAd: InterstitialAd? = null
     private var isVpnRunning = false
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
-    private var deviceId: String? = null
+    private lateinit var googleSignInClient: GoogleSignInClient
+    
     private val PREFS_NAME = "SweetDataPrefs"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-
-        // 1. Firebase Manual Config (Kept exactly as you have it)
-        val options = FirebaseOptions.Builder()
-            .setApplicationId("1:1085998005937:android:8451888af22059a9942c90")
-            .setProjectId("sweetdatavpn")
-            .setApiKey("AIzaSyB...") // Use your full key here
-            .setDatabaseUrl("https://sweetdatavpn-default-rtdb.firebaseio.com")
-            .build()
-
-        if (FirebaseApp.getApps(this).isEmpty()) {
-            FirebaseApp.initializeApp(this, options)
-        }
-
         setContentView(R.layout.activity_main)
 
-        // 2. Initialize Firebase & Ads
+        // 1. Initialize Firebase (Automatic via google-services.json)
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
-        MobileAds.initialize(this) {}
-        loadInterstitial()
-        signInSilently()
+        
+        // 2. Configure Google Sign-In
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id)) // This comes from the JSON plugin
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // 3. Link UI (Matching your activity_main.xml)
+        // 3. Link UI
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        updateBalanceUI()
-
-        // 4. Network Toggle Logic (Mapped to Kevin/Sherwin internally)
+        // 4. Network Toggle Logic (Kevin/Sherwin Alignment)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                // Use the IDs from your XML to set the internal label
+                val internalName = if (checkedId == R.id.btnSafaricom) "Safaricom" else "Airtel"
                 val displayName = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
-                prefs.edit().putString("selected_network", displayName).apply()
-                Toast.makeText(this, "Mode: $displayName", Toast.LENGTH_SHORT).show()
+                
+                prefs.edit().putString("selected_network", internalName).apply()
+                Toast.makeText(this, "Network: $displayName", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 5. Connect Button Logic
-        btnConnect.setOnClickListener {
-            if (isVpnRunning) stopVpn() else checkAccessAndStart()
-        }
-
-        // 6. FIXED NAVIGATION - These match your Manifest exactly
+        // 5. Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -94,28 +82,72 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnStore).setOnClickListener {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
+
+        // 6. VPN Connect Logic
+        btnConnect.setOnClickListener {
+            if (isVpnRunning) stopVpn() else checkAccessAndStart()
+        }
+
+        // 7. Check Login Status
+        if (auth.currentUser == null) {
+            signInWithGoogle()
+        } else {
+            syncTimeFromFirebase()
+        }
+
+        MobileAds.initialize(this) {}
+        loadInterstitial()
     }
 
-    private fun checkAccessAndStart() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val expiry = prefs.getLong("expiry_time", 0)
-        val isSubscribed = prefs.getBoolean("is_subscribed", false)
+    private fun signInWithGoogle() {
+        val signInIntent = googleSignInClient.signInIntent
+        googleLauncher.launch(signInIntent)
+    }
 
-        if (isSubscribed || System.currentTimeMillis() < expiry) {
-            startVpnProcess()
-        } else {
-            Toast.makeText(this, "No time left! Go to TASKS or STORE", Toast.LENGTH_LONG).show()
+    private val googleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)!!
+                firebaseAuthWithGoogle(account.idToken!!)
+            } catch (e: ApiException) {
+                Toast.makeText(this, "Login Failed", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    private fun firebaseAuthWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) {
+                syncTimeFromFirebase()
+            }
+        }
+    }
+
+    private fun syncTimeFromFirebase() {
+        val userId = auth.currentUser?.uid ?: return
+        database.child("users").child(userId).child("expiry_time")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val expiry = snapshot.getValue(Long::class.java) ?: 0L
+                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                        .putLong("expiry_time", expiry).apply()
+                    updateBalanceUI()
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
     }
 
     private fun updateBalanceUI() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
+        val diff = expiry - System.currentTimeMillis()
 
-        if (System.currentTimeMillis() < expiry) {
-            val remaining = (expiry - System.currentTimeMillis()) / (60 * 1000)
+        if (diff > 0) {
+            val mins = diff / (60 * 1000)
             tvStatus.text = "ACTIVE"
-            tvBalance.text = "${remaining} MIN" // Showing Minutes instead of MB
+            tvBalance.text = "$mins MIN"
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_light))
         } else {
             tvStatus.text = "DISCONNECTED"
@@ -124,45 +156,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun checkAccessAndStart() {
+        val expiry = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong("expiry_time", 0)
+        if (System.currentTimeMillis() < expiry) {
+            startVpnProcess()
+        } else {
+            Toast.makeText(this, "No time left! Get bundles in TASKS", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun startVpnProcess() {
         val intent = VpnService.prepare(this)
-        if (intent != null) {
-            startActivityForResult(intent, 102)
-        } else {
-            onActivityResult(102, RESULT_OK, null)
-        }
+        if (intent != null) startActivityForResult(intent, 102)
+        else onActivityResult(102, RESULT_OK, null)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102 && resultCode == RESULT_OK) {
-            val serviceIntent = Intent(this, MyVpnService::class.java)
-            startService(serviceIntent)
+            startService(Intent(this, MyVpnService::class.java))
             isVpnRunning = true
             btnConnect.text = "STOP"
-            btnConnect.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             tvStatus.text = "CONNECTED"
         }
     }
 
     private fun stopVpn() {
-        val serviceIntent = Intent(this, MyVpnService::class.java).apply { action = "STOP" }
-        startService(serviceIntent)
+        startService(Intent(this, MyVpnService::class.java).apply { action = "STOP" })
         isVpnRunning = false
         btnConnect.text = "CONNECT"
-        btnConnect.setBackgroundColor(android.graphics.Color.parseColor("#FF0033"))
         updateBalanceUI()
-    }
-
-    private fun signInSilently() {
-        auth.signInAnonymously().addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                FirebaseInstallations.getInstance().id.addOnSuccessListener { id ->
-                    deviceId = id
-                    database.child("users").child(id).child("last_seen").setValue(System.currentTimeMillis())
-                }
-            }
-        }
     }
 
     private fun loadInterstitial() {
@@ -170,10 +193,5 @@ class MainActivity : AppCompatActivity() {
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
             })
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updateBalanceUI()
     }
 }
