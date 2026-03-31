@@ -19,31 +19,28 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import okhttp3.*
 import java.io.IOException
-import java.util.*
 
 class TasksActivity : AppCompatActivity() {
 
-    // --- CONFIGURATION ---
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
     private val INTERSTITIAL_ID = "ca-app-pub-2344867686796379/4612206920"
     private val PREFS_NAME = "SweetDataPrefs"
 
-    // Variables
     private var mInterstitialAd: InterstitialAd? = null
     private val client = OkHttpClient()
     private lateinit var tvAdProgress: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_tasks)
+        
+        // CHECK THIS: Ensure your XML file is named activity_task.xml
+        setContentView(R.layout.activity_task)
 
-        // 1. Initialize Ads & UI
         tvAdProgress = findViewById(R.id.tvAdProgress)
-        loadNextAd() // Pull first ad immediately
+        loadNextAd()
         updateAdProgressUI()
 
-        // 2. Link Buttons & Views
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
         val btnPayForTask = findViewById<MaterialButton>(R.id.btnPayForTask)
         val btnSubmitTask = findViewById<MaterialButton>(R.id.btnSubmitTaskToAdmin)
@@ -54,60 +51,44 @@ class TasksActivity : AppCompatActivity() {
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
-        // 3. WATCH AD LOGIC
         btnWatchAd.setOnClickListener {
             showAdAndReward()
         }
 
-        // 4. PAY FOR TASK LOGIC (Reveals Payment & Copies Till)
         btnPayForTask.setOnClickListener {
             if (etTitle.text.isBlank() || etLink.text.isBlank()) {
-                Toast.makeText(this, "Please enter Title and Link first!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Enter Title and Link first!", Toast.LENGTH_SHORT).show()
             } else {
-                // Show the hidden M-Pesa section
                 cardTaskPayment.visibility = View.VISIBLE
-                
-                // AUTO-COPY TILL NUMBER
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Till Number", "3043489")
                 clipboard.setPrimaryClip(clip)
-                
-                Toast.makeText(this, "Till 3043489 copied to clipboard!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Till 3043489 copied!", Toast.LENGTH_LONG).show()
             }
         }
 
-        // 5. SUBMIT TO TELEGRAM BOT
         btnSubmitTask.setOnClickListener {
             val msg = etPaymentMsg.text.toString().trim()
             if (msg.length < 10) {
-                Toast.makeText(this, "Please paste the full M-Pesa message", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Paste full M-Pesa message", Toast.LENGTH_SHORT).show()
             } else {
                 val adminReport = """
                     🆕 *NEW TASK PROMOTION*
                     Title: ${etTitle.text}
-                    Desc: ${etDesc.text}
                     Link: ${etLink.text}
-                    ------------------------
-                    💰 *PAYMENT PROOF:*
-                    $msg
+                    💰 *PROOF:* $msg
                 """.trimIndent()
-                
                 sendToTelegram(adminReport)
             }
         }
 
-        // 6. Support Link
         findViewById<TextView>(R.id.tvSupport).setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
-            startActivity(intent)
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626")))
         }
     }
 
-    // --- AD LOGIC (PULLER SYSTEM) ---
-
     private fun loadNextAd() {
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
+        InterstitialAd.load(this, INTERSTITIAL_ID, AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
             override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
             override fun onAdFailedToLoad(adError: LoadAdError) { mInterstitialAd = null }
         })
@@ -116,11 +97,11 @@ class TasksActivity : AppCompatActivity() {
     private fun showAdAndReward() {
         if (mInterstitialAd != null) {
             mInterstitialAd?.show(this)
-            mInterstitialAd = null // Clear used ad
+            mInterstitialAd = null
             handleRewardPoints()
-            loadNextAd() // Immediately pull the NEXT one
+            loadNextAd()
         } else {
-            Toast.makeText(this, "Ad not ready, pulling new one...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ad loading... try again in 3 seconds", Toast.LENGTH_SHORT).show()
             loadNextAd()
         }
     }
@@ -131,17 +112,17 @@ class TasksActivity : AppCompatActivity() {
         count++
 
         if (count >= 6) {
-            val threeHours = 3 * 60 * 60 * 1000L
+            // 2 Hours = 120 Minutes
+            val twoHours = 120 * 60 * 1000L
+            val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
+            val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
+            
             prefs.edit().apply {
-                putLong("expiry_time", System.currentTimeMillis() + threeHours)
+                putLong("expiry_time", baseTime + twoHours)
                 putInt("ad_count", 0)
-                putBoolean("force_vpn", true)
                 apply()
             }
-            Toast.makeText(this, "3 Hours Unlimited Unlocked!", Toast.LENGTH_LONG).show()
-            
-            // Auto-Start VPN for the user
-            startService(Intent(this, MyVpnService::class.java))
+            Toast.makeText(this, "2 Hours Added!", Toast.LENGTH_LONG).show()
             finish() 
         } else {
             prefs.edit().putInt("ad_count", count).apply()
@@ -155,8 +136,6 @@ class TasksActivity : AppCompatActivity() {
         tvAdProgress.text = "Progress: $count/6 Ads Watched"
     }
 
-    // --- TELEGRAM SENDER ---
-
     private fun sendToTelegram(text: String) {
         val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
         val body = FormBody.Builder()
@@ -166,14 +145,13 @@ class TasksActivity : AppCompatActivity() {
             .build()
 
         val request = Request.Builder().url(url).post(body).build()
-
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { Toast.makeText(this@TasksActivity, "Submission Failed!", Toast.LENGTH_SHORT).show() }
+                runOnUiThread { Toast.makeText(this@TasksActivity, "Failed!", Toast.LENGTH_SHORT).show() }
             }
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread {
-                    Toast.makeText(this@TasksActivity, "Sent! Admin will approve soon.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@TasksActivity, "Sent! Waiting for approval.", Toast.LENGTH_LONG).show()
                     finish()
                 }
                 response.close()
