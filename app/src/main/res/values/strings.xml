@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SweetData VPN</string>
+    
+    <!-- This is the Key we found in your JSON -->
+    <string name="default_web_client_id">1085998005937-oft1cljf321rlb6em3ee9pa63ntprbu4.apps.googleusercontent.com</string>
+</resources>
