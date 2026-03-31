@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -24,8 +25,15 @@ class SubscriptionActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // CHECK 1: Ensure your XML is named exactly activity_subscription.xml
-        setContentView(R.layout.activity_subscription)
+        
+        // CRITICAL CHECK: Ensure your file in res/layout is activity_subscription.xml
+        try {
+            setContentView(R.layout.activity_subscription)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Layout Error: activity_subscription missing!", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
 
@@ -44,9 +52,8 @@ class SubscriptionActivity : AppCompatActivity() {
             startActivity(Intent.createChooser(shareIntent, "Share Referral Code"))
         }
 
-        // 2. PayPal Section (30 Bob / $0.25)
+        // 2. PayPal Section
         findViewById<MaterialCardView>(R.id.cardPaypal)?.setOnClickListener {
-            // Updated link to reflect your 30 Bob ($0.25) price
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/0.25"))
             startActivity(intent)
         }
@@ -64,9 +71,9 @@ class SubscriptionActivity : AppCompatActivity() {
         val btnVerifyPayment = findViewById<MaterialButton>(R.id.btnVerifyPayment)
 
         btnVerifyPayment?.setOnClickListener {
-            val msg = etMpesaMessage?.text.toString().trim()
+            val msg = etMpesaMessage?.text?.toString()?.trim() ?: ""
             if (msg.length < 15) {
-                Toast.makeText(this, "Please paste the full M-Pesa/PayPal message!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Paste the full M-Pesa/PayPal message!", Toast.LENGTH_SHORT).show()
             } else {
                 val report = """
                     💎 *SWEETDATA VIP REQUEST*
@@ -83,8 +90,12 @@ class SubscriptionActivity : AppCompatActivity() {
 
         // 5. Contact Admin
         findViewById<MaterialButton>(R.id.btnContactAdmin)?.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
-            startActivity(intent)
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
