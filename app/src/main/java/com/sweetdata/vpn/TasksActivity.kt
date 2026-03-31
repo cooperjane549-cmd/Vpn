@@ -36,6 +36,7 @@ class TasksActivity : AppCompatActivity() {
         
         // CHECK THIS: Ensure your XML file is named activity_task.xml
         setContentView(R.layout.activity_task)
+    
 
         tvAdProgress = findViewById(R.id.tvAdProgress)
         loadNextAd()
