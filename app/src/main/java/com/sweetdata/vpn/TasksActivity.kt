@@ -38,10 +38,11 @@ class TasksActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // FIXED: Ensuring this matches the plural name often used in manifests
+        // This matches your GitHub file: activity_tasks.xml
         setContentView(R.layout.activity_tasks)
 
-        tvAdProgress = findViewById(R.id.tvAdProgress)
+        // Null-safe finding of views to prevent crashes
+        tvAdProgress = findViewById(R.id.tvAdProgress) ?: TextView(this)
         
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
         val btnPayForTask = findViewById<MaterialButton>(R.id.btnPayForTask)
@@ -55,41 +56,31 @@ class TasksActivity : AppCompatActivity() {
         loadNextAd()
         updateAdProgressUI()
 
-        btnWatchAd?.setOnClickListener {
-            showAdAndReward()
-        }
+        btnWatchAd?.setOnClickListener { showAdAndReward() }
 
         btnPayForTask?.setOnClickListener {
-            if (etTitle.text.isNullOrBlank() || etLink.text.isNullOrBlank()) {
-                Toast.makeText(this, "Enter Title and Link first!", Toast.LENGTH_SHORT).show()
+            if (etTitle?.text.isNullOrBlank()) {
+                Toast.makeText(this, "Enter Title first!", Toast.LENGTH_SHORT).show()
             } else {
-                cardTaskPayment.visibility = View.VISIBLE
+                cardTaskPayment?.visibility = View.VISIBLE
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Till Number", "3043489")
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(this, "Till 3043489 copied!", Toast.LENGTH_LONG).show()
+                clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
+                Toast.makeText(this, "Till 3043489 copied!", Toast.LENGTH_SHORT).show()
             }
         }
 
         btnSubmitTask?.setOnClickListener {
-            val msg = etPaymentMsg.text.toString().trim()
+            val msg = etPaymentMsg?.text.toString().trim()
             if (msg.length < 10) {
                 Toast.makeText(this, "Paste full M-Pesa message", Toast.LENGTH_SHORT).show()
             } else {
-                val adminReport = """
-                    🆕 *NEW TASK PROMOTION*
-                    Title: ${etTitle.text}
-                    Link: ${etLink.text}
-                    💰 *PROOF:* $msg
-                """.trimIndent()
-                sendToTelegram(adminReport)
+                sendToTelegram("🆕 *TASK PROOF*\nTitle: ${etTitle?.text}\nProof: $msg")
             }
         }
     }
 
     private fun loadNextAd() {
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
+        InterstitialAd.load(this, INTERSTITIAL_ID, AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
             override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
             override fun onAdFailedToLoad(adError: LoadAdError) { mInterstitialAd = null }
         })
@@ -102,28 +93,20 @@ class TasksActivity : AppCompatActivity() {
             handleRewardPoints()
             loadNextAd()
         } else {
-            Toast.makeText(this, "Ad loading...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ad still loading...", Toast.LENGTH_SHORT).show()
             loadNextAd()
         }
     }
 
     private fun handleRewardPoints() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var count = prefs.getInt("ad_count", 0) + 1
-
+        val count = prefs.getInt("ad_count", 0) + 1
         if (count >= 6) {
-            val rewardMillis = 120 * 60 * 1000L
-            val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
-            val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
-            val newExpiryTime = baseTime + rewardMillis
-
-            prefs.edit().putLong("expiry_time", newExpiryTime).putInt("ad_count", 0).apply()
-
-            auth.currentUser?.uid?.let { userId ->
-                database.child("users").child(userId).child("expiry_time").setValue(newExpiryTime)
-            }
-            Toast.makeText(this, "Success: 2 Hours Added!", Toast.LENGTH_LONG).show()
-            finish() 
+            val newExpiry = System.currentTimeMillis() + (120 * 60 * 1000L)
+            prefs.edit().putLong("expiry_time", newExpiry).putInt("ad_count", 0).apply()
+            auth.currentUser?.uid?.let { database.child("users").child(it).child("expiry_time").setValue(newExpiry) }
+            Toast.makeText(this, "2 Hours Added!", Toast.LENGTH_LONG).show()
+            finish()
         } else {
             prefs.edit().putInt("ad_count", count).apply()
             updateAdProgressUI()
@@ -136,20 +119,11 @@ class TasksActivity : AppCompatActivity() {
     }
 
     private fun sendToTelegram(text: String) {
-        val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
-        val body = FormBody.Builder()
-            .add("chat_id", ADMIN_CHAT_ID)
-            .add("text", text)
-            .add("parse_mode", "Markdown")
-            .build()
-
-        client.newCall(Request.Builder().url(url).post(body).build()).enqueue(object : Callback {
+        val body = FormBody.Builder().add("chat_id", ADMIN_CHAT_ID).add("text", text).add("parse_mode", "Markdown").build()
+        client.newCall(Request.Builder().url("https://api.telegram.org/bot$BOT_TOKEN/sendMessage").post(body).build()).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
-                runOnUiThread { 
-                    Toast.makeText(this@TasksActivity, "Sent for approval!", Toast.LENGTH_SHORT).show()
-                    finish()
-                }
+                runOnUiThread { Toast.makeText(this@TasksActivity, "Sent!", Toast.LENGTH_SHORT).show(); finish() }
             }
         })
     }
