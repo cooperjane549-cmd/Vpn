@@ -4,12 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
+import android.telephony.TelephonyManager
 import android.util.Log
 import okhttp3.*
 import okio.ByteString.Companion.toByteString
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class MyVpnService : VpnService() {
@@ -17,31 +17,33 @@ class MyVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var running = false
     private var webSocket: WebSocket? = null
-    private var currentBugIndex = 0
-
-    // Streams kept open to prevent overhead/crashes
-    private var inputStream: FileInputStream? = null
-    private var outputStream: FileOutputStream? = null
 
     // --- CONFIGURATION ---
     private val vpsIp = "62.169.23.118"
     private val vpsPort = 443
     private val vpsPath = "/sweetdata"
-    
-    // REDUCED MTU: 1500 is often too large for tunneled packets (headers add size)
-    private val mtuSize = 1400 
+    private val mtuSize = 1400 // FIX 1: Lowered from 1500 to prevent packet dropping
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    private val SAFARICOM_BUGS = arrayOf("v-safaricom.com", "video.safaricom.et", "static.safaricom.com", "www.safaricom.co.ke")
-    private val AIRTEL_BUGS = arrayOf("www.airtel.co.ke", "airtellive.com", "one.airtel.in", "airtelkenya.com", "v.whatsapp.net")
+    private val SAFARICOM_BUG = "www.safaricom.co.ke"
+    private val AIRTEL_BUG = "www.airtel.co.ke"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        val isForceOn = prefs.getBoolean("force_vpn", false)
+        val expiryTime = prefs.getLong("expiry_time", 0L)
+        val currentTime = System.currentTimeMillis()
+
         if (intent?.action == "STOP") {
+            // Only stop if the unlimited timer hasn't expired
+            if (isForceOn && currentTime < expiryTime) {
+                return START_STICKY 
+            }
             stopVpn()
             return START_NOT_STICKY
         }
+
         if (!running) {
-            currentBugIndex = 0
             setupVpn()
         }
         return START_STICKY
@@ -53,40 +55,34 @@ class MyVpnService : VpnService() {
             builder.setSession("SweetDataVPN")
                 .addAddress("10.0.0.2", 24)
                 .addRoute("0.0.0.0", 0)
-                // Added Google and Cloudflare DNS for better compatibility
                 .addDnsServer("8.8.8.8")
-                .addDnsServer("1.1.1.1") 
+                .addDnsServer("1.1.1.1")
                 .setMtu(mtuSize)
 
             vpnInterface = builder.establish()
 
             if (vpnInterface != null) {
                 running = true
-                // Initialize streams once
-                inputStream = FileInputStream(vpnInterface?.fileDescriptor)
-                outputStream = FileOutputStream(vpnInterface?.fileDescriptor)
-                
-                startNextTunnelAttempt()
+                val activeBug = detectNetworkAndGetBug()
+                startInjectorTunnel(activeBug)
             }
         } catch (e: Exception) {
-            Log.e("SweetData", "VPN Setup Failed: ${e.message}")
+            Log.e("SweetData", "Setup Failed: ${e.message}")
         }
     }
 
-    private fun startNextTunnelAttempt() {
-        val bugList = getActiveBugList()
-        if (currentBugIndex < bugList.size) {
-            startInjectorTunnel(bugList[currentBugIndex])
-        } else {
-            currentBugIndex = 0 // Cycle back
-            Log.d("SweetData", "All bugs failed, retrying...")
-        }
-    }
-
-    private fun getActiveBugList(): Array<String> {
+    private fun detectNetworkAndGetBug(): String {
+        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val operatorName = telephonyManager.networkOperatorName.lowercase()
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
-        val savedNetwork = prefs.getString("selected_network", "Safaricom")
-        return if (savedNetwork == "Airtel") AIRTEL_BUGS else SAFARICOM_BUGS
+        val savedNetwork = prefs.getString("selected_network", null)
+
+        return when {
+            savedNetwork == "Safaricom" -> SAFARICOM_BUG
+            savedNetwork == "Airtel" -> AIRTEL_BUG
+            operatorName.contains("airtel") -> AIRTEL_BUG
+            else -> SAFARICOM_BUG
+        }
     }
 
     private fun startInjectorTunnel(selectedBug: String) {
@@ -95,7 +91,7 @@ class MyVpnService : VpnService() {
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
-        // Using WSS (Secure) for Port 443
+        // FIX 2: Using wss:// for port 443
         val request = Request.Builder()
             .url("wss://$vpsIp:$vpsPort$vpsPath")
             .header("Host", selectedBug)
@@ -106,67 +102,88 @@ class MyVpnService : VpnService() {
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("SweetData", "Tunnel Connected via $selectedBug")
-                Thread { readFromVpn() }.start()
+                Thread { transferData() }.start()
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
                 try {
-                    // Write back to the phone's network stack
-                    outputStream?.write(bytes.toByteArray())
-                } catch (e: Exception) {
-                    Log.e("SweetData", "Downlink Error: ${e.message}")
-                }
+                    // Open the output stream once and write
+                    val output = FileOutputStream(vpnInterface?.fileDescriptor)
+                    output.write(bytes.toByteArray())
+                } catch (e: Exception) { }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                if (running) {
-                    Log.d("SweetData", "Bug $selectedBug failed, trying next...")
-                    currentBugIndex++
-                    startNextTunnelAttempt()
+                if (isUnlimitedActive() && running) {
+                    // Auto-reconnect logic
+                    Thread.sleep(3000)
+                    startInjectorTunnel(selectedBug)
+                } else {
+                    stopVpn()
                 }
             }
         })
     }
 
-    private fun readFromVpn() {
+    private fun transferData() {
+        val input = FileInputStream(vpnInterface?.fileDescriptor)
         val buffer = ByteArray(mtuSize)
         try {
             while (running) {
-                // EXPIRE CHECK: If time is up, kill the loop
-                if (!hasTimeLeft()) {
-                    Log.d("SweetData", "Time expired. Stopping.")
-                    stopVpn()
-                    break
-                }
-
-                val length = inputStream?.read(buffer) ?: -1
+                val length = input.read(buffer)
                 if (length > 0) {
+                    // FIX 3: Ensure we don't stop if the user has NO balance but HAS unlimited time
+                    if (!isUnlimitedActive()) {
+                        if (!updateLocalBalance(length)) {
+                            stopVpn()
+                            break
+                        }
+                    }
                     val data = buffer.copyOfRange(0, length)
-                    // Send out to the VPS
                     webSocket?.send(data.toByteString())
                 }
             }
         } catch (e: Exception) {
-            if (running) stopVpn()
+            Log.e("SweetData", "Upload Error: ${e.message}")
         }
     }
 
-    private fun hasTimeLeft(): Boolean {
+    private fun isUnlimitedActive(): Boolean {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        val isForceOn = prefs.getBoolean("force_vpn", false)
         val expiryTime = prefs.getLong("expiry_time", 0L)
-        // If expiry is 0, we assume the user hasn't earned time yet
-        return System.currentTimeMillis() < expiryTime
+        
+        // If time is up, reset the force_vpn flag
+        if (isForceOn && System.currentTimeMillis() > expiryTime) {
+            prefs.edit().putBoolean("force_vpn", false).apply()
+            return false
+        }
+        return isForceOn
+    }
+
+    private fun updateLocalBalance(bytesSent: Int): Boolean {
+        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        var balance = prefs.getLong("byte_balance", 0L)
+        
+        // Convert MB to bytes if byte_balance is missing
+        if (balance <= 0L) {
+            balance = prefs.getInt("mb_balance", 0).toLong() * 1024 * 1024
+        }
+
+        if (balance <= 0) return false
+
+        val newBalance = balance - bytesSent
+        prefs.edit().putLong("byte_balance", newBalance)
+            .putInt("mb_balance", (newBalance / (1024 * 1024)).toInt())
+            .apply()
+            
+        return true
     }
 
     private fun stopVpn() {
         running = false
-        webSocket?.close(1000, "User Stopped")
-        try {
-            vpnInterface?.close()
-            inputStream?.close()
-            outputStream?.close()
-        } catch (e: IOException) { }
+        webSocket?.close(1000, "Stopped")
+        vpnInterface?.close()
         vpnInterface = null
         stopSelf()
     }
