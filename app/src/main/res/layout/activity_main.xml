@@ -48,7 +48,7 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Green"
+            android:text="Kevin"
             android:textColor="#FFFFFF"
             app:strokeColor="#33FFFFFF" />
 
@@ -57,7 +57,7 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Red"
+            android:text="Sherwin"
             android:textColor="#FFFFFF"
             app:strokeColor="#33FFFFFF" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
