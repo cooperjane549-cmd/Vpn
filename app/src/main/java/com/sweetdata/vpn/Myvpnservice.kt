@@ -4,12 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
-import android.telephony.TelephonyManager
 import android.util.Log
 import okhttp3.*
 import okio.ByteString.Companion.toByteString
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class MyVpnService : VpnService() {
@@ -19,27 +19,27 @@ class MyVpnService : VpnService() {
     private var webSocket: WebSocket? = null
     private var currentBugIndex = 0
 
-    // --- YOUR CORE CONFIGURATION (KEEPING THESE) ---
+    // Streams kept open to prevent overhead/crashes
+    private var inputStream: FileInputStream? = null
+    private var outputStream: FileOutputStream? = null
+
+    // --- CONFIGURATION ---
     private val vpsIp = "62.169.23.118"
     private val vpsPort = 443
     private val vpsPath = "/sweetdata"
-    private val mtuSize = 1500 
+    
+    // REDUCED MTU: 1500 is often too large for tunneled packets (headers add size)
+    private val mtuSize = 1400 
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    private val SAFARICOM_BUGS = arrayOf(
-        "v-safaricom.com", "video.safaricom.et", "static.safaricom.com", "www.safaricom.co.ke"
-    )
-
-    private val AIRTEL_BUGS = arrayOf(
-        "www.airtel.co.ke", "airtellive.com", "one.airtel.in", "airtelkenya.com", "v.whatsapp.net"
-    )
+    private val SAFARICOM_BUGS = arrayOf("v-safaricom.com", "video.safaricom.et", "static.safaricom.com", "www.safaricom.co.ke")
+    private val AIRTEL_BUGS = arrayOf("www.airtel.co.ke", "airtellive.com", "one.airtel.in", "airtelkenya.com", "v.whatsapp.net")
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
             stopVpn()
             return START_NOT_STICKY
         }
-
         if (!running) {
             currentBugIndex = 0
             setupVpn()
@@ -53,7 +53,8 @@ class MyVpnService : VpnService() {
             builder.setSession("SweetDataVPN")
                 .addAddress("10.0.0.2", 24)
                 .addRoute("0.0.0.0", 0)
-                .addDnsServer("8.8.4.4")
+                // Added Google and Cloudflare DNS for better compatibility
+                .addDnsServer("8.8.8.8")
                 .addDnsServer("1.1.1.1") 
                 .setMtu(mtuSize)
 
@@ -61,62 +62,66 @@ class MyVpnService : VpnService() {
 
             if (vpnInterface != null) {
                 running = true
+                // Initialize streams once
+                inputStream = FileInputStream(vpnInterface?.fileDescriptor)
+                outputStream = FileOutputStream(vpnInterface?.fileDescriptor)
+                
                 startNextTunnelAttempt()
             }
         } catch (e: Exception) {
-            Log.e("SweetData", "Setup Failed: ${e.message}")
+            Log.e("SweetData", "VPN Setup Failed: ${e.message}")
         }
     }
 
     private fun startNextTunnelAttempt() {
         val bugList = getActiveBugList()
         if (currentBugIndex < bugList.size) {
-            val selectedBug = bugList[currentBugIndex]
-            startInjectorTunnel(selectedBug)
+            startInjectorTunnel(bugList[currentBugIndex])
         } else {
-            currentBugIndex = 0 // Restart cycling if all fail
+            currentBugIndex = 0 // Cycle back
+            Log.d("SweetData", "All bugs failed, retrying...")
         }
     }
 
     private fun getActiveBugList(): Array<String> {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
-        // This line now matches the "Safaricom/Airtel" strings sent by MainActivity
         val savedNetwork = prefs.getString("selected_network", "Safaricom")
-
         return if (savedNetwork == "Airtel") AIRTEL_BUGS else SAFARICOM_BUGS
     }
 
     private fun startInjectorTunnel(selectedBug: String) {
         val client = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
-        val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-
+        // Using WSS (Secure) for Port 443
         val request = Request.Builder()
-            .url("ws://$vpsIp:$vpsPort$vpsPath")
+            .url("wss://$vpsIp:$vpsPort$vpsPath")
             .header("Host", selectedBug)
-            .header("User-Agent", userAgent)
             .header("Upgrade", "websocket")
             .header("Connection", "Upgrade")
-            .header("Sec-WebSocket-Protocol", vlessUuid) // Your VLESS String logic
+            .header("Sec-WebSocket-Protocol", vlessUuid)
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Thread { transferData() }.start()
+                Log.d("SweetData", "Tunnel Connected via $selectedBug")
+                Thread { readFromVpn() }.start()
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
                 try {
-                    val output = FileOutputStream(vpnInterface?.fileDescriptor)
-                    output.write(bytes.toByteArray())
-                } catch (e: Exception) { }
+                    // Write back to the phone's network stack
+                    outputStream?.write(bytes.toByteArray())
+                } catch (e: Exception) {
+                    Log.e("SweetData", "Downlink Error: ${e.message}")
+                }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (running) {
+                    Log.d("SweetData", "Bug $selectedBug failed, trying next...")
                     currentBugIndex++
                     startNextTunnelAttempt()
                 }
@@ -124,21 +129,21 @@ class MyVpnService : VpnService() {
         })
     }
 
-    private fun transferData() {
-        val input = FileInputStream(vpnInterface?.fileDescriptor)
+    private fun readFromVpn() {
         val buffer = ByteArray(mtuSize)
-        
         try {
             while (running) {
-                // TIME CHECK: If expiry time passed, kill connection immediately
+                // EXPIRE CHECK: If time is up, kill the loop
                 if (!hasTimeLeft()) {
+                    Log.d("SweetData", "Time expired. Stopping.")
                     stopVpn()
                     break
                 }
 
-                val length = input.read(buffer)
+                val length = inputStream?.read(buffer) ?: -1
                 if (length > 0) {
                     val data = buffer.copyOfRange(0, length)
+                    // Send out to the VPS
                     webSocket?.send(data.toByteString())
                 }
             }
@@ -150,13 +155,18 @@ class MyVpnService : VpnService() {
     private fun hasTimeLeft(): Boolean {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
         val expiryTime = prefs.getLong("expiry_time", 0L)
+        // If expiry is 0, we assume the user hasn't earned time yet
         return System.currentTimeMillis() < expiryTime
     }
 
     private fun stopVpn() {
         running = false
-        webSocket?.close(1000, "Stopped")
-        vpnInterface?.close()
+        webSocket?.close(1000, "User Stopped")
+        try {
+            vpnInterface?.close()
+            inputStream?.close()
+            outputStream?.close()
+        } catch (e: IOException) { }
         vpnInterface = null
         stopSelf()
     }
