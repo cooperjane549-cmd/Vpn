@@ -41,11 +41,11 @@ class MainActivity : AppCompatActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // 1. Firebase Manual Config (SweetData VPN)
+        // 1. Firebase Manual Config (Kept exactly as you have it)
         val options = FirebaseOptions.Builder()
             .setApplicationId("1:1085998005937:android:8451888af22059a9942c90")
             .setProjectId("sweetdatavpn")
-            .setApiKey("AIzaSyB...") // Ensure your full key is here
+            .setApiKey("AIzaSyB...") // Use your full key here
             .setDatabaseUrl("https://sweetdatavpn-default-rtdb.firebaseio.com")
             .build()
 
@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         loadInterstitial()
         signInSilently()
 
-        // 3. Link UI (Matching your activity_main.xml exactly)
+        // 3. Link UI (Matching your activity_main.xml)
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
@@ -70,22 +70,23 @@ class MainActivity : AppCompatActivity() {
 
         updateBalanceUI()
 
-        // 4. Network Toggle Logic (Prevents crash by handling the XML buttons)
+        // 4. Network Toggle Logic (Mapped to Kevin/Sherwin internally)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                // Internal mapping so Safaricom/Airtel names aren't used in logic
+                // Use the IDs from your XML to set the internal label
                 val displayName = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
                 prefs.edit().putString("selected_network", displayName).apply()
                 Toast.makeText(this, "Mode: $displayName", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 5. Button Actions
+        // 5. Connect Button Logic
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else checkAccessAndStart()
         }
 
+        // 6. FIXED NAVIGATION - These match your Manifest exactly
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -103,27 +104,22 @@ class MainActivity : AppCompatActivity() {
         if (isSubscribed || System.currentTimeMillis() < expiry) {
             startVpnProcess()
         } else {
-            Toast.makeText(this, "Get access in TASKS or STORE", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No time left! Go to TASKS or STORE", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun updateBalanceUI() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val isSubscribed = prefs.getBoolean("is_subscribed", false)
         val expiry = prefs.getLong("expiry_time", 0)
 
-        if (isSubscribed) {
-            tvStatus.text = "SWEETDATA VIP"
-            tvBalance.text = "UNLIMITED"
-            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_light))
-        } else if (System.currentTimeMillis() < expiry) {
+        if (System.currentTimeMillis() < expiry) {
             val remaining = (expiry - System.currentTimeMillis()) / (60 * 1000)
-            tvStatus.text = "TRIAL ACTIVE"
-            tvBalance.text = "${remaining} MIN"
+            tvStatus.text = "ACTIVE"
+            tvBalance.text = "${remaining} MIN" // Showing Minutes instead of MB
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_light))
         } else {
             tvStatus.text = "DISCONNECTED"
-            tvBalance.text = "0 MB"
+            tvBalance.text = "0 MIN"
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.white))
         }
     }
