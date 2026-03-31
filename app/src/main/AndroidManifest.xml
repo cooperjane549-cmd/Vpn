@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Required for Android 14+ VPN Services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -15,29 +14,32 @@
         android:allowBackup="true"
         android:icon="@drawable/app_logo"
         android:label="SweetData VPN"
-        android:theme="@style/Theme.App.Starting">
+        android:theme="@style/Theme.SweetDataVPN"> <!-- CHANGED: Global theme is now your Material theme -->
 
-        <!-- MAIN ENTRY POINT -->
+        <!-- MAIN ENTRY POINT (Keeps the Splash Theme) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.App.Starting"> 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- TASKS SCREEN -->
+        <!-- TASKS SCREEN (Explicitly using the Material Theme) -->
         <activity
             android:name=".TasksActivity"
             android:exported="false"
-            android:label="SweetData Tasks" />
+            android:label="SweetData Tasks"
+            android:theme="@style/Theme.SweetDataVPN" />
 
-        <!-- SUBSCRIPTION SCREEN -->
+        <!-- SUBSCRIPTION SCREEN (Explicitly using the Material Theme) -->
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false"
-            android:label="SweetData Store" />
+            android:label="SweetData Store"
+            android:theme="@style/Theme.SweetDataVPN" />
 
         <!-- VPN CORE SERVICE -->
         <service
@@ -48,13 +50,11 @@
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
-            <!-- CRITICAL: Android 14 requirement for specialUse type -->
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_F_S_TYPE"
                 android:value="VPN connectivity for SweetData tunneling" />
         </service>
 
-        <!-- GOOGLE ADS CONFIG -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-2344867686796379~2770827433"/>
