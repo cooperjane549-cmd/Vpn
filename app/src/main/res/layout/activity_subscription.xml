@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#090909">
+    android:background="#090909"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,55 +15,20 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="VIP &amp; REWARDS"
-            android:textColor="#FFFFFF"
+            android:text="SWEETDATA VIP"
+            android:textColor="#FF0033"
             android:textSize="24sp"
             android:textStyle="bold"
             android:layout_marginBottom="20dp"/>
 
-        <!-- Referral Section (Untouched) -->
+        <!-- M-PESA 24HR SECTION -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMpesa"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="#1AFFFFFF"
             app:cardCornerRadius="12dp"
-            android:layout_marginBottom="20dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Invite Friends (Earn 50MB)"
-                    android:textColor="#FFFFFF"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:id="@+id/tvReferralCode"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Your Code: LOADING..."
-                    android:textColor="#9CA3AF"
-                    android:layout_marginTop="5dp"/>
-                <Button
-                    android:id="@+id/btnShareReferral"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="SHARE ON WHATSAPP"
-                    android:layout_marginTop="10dp"
-                    app:backgroundTint="#25D366"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- PayPal Section (Untouched) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardPaypal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginBottom="15dp"
             android:clickable="true"
             android:focusable="true">
             <LinearLayout
@@ -73,94 +39,65 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Global VIP (PayPal)"
-                    android:textColor="#0070BA"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Unlimited High Speed - $5/Month"
-                    android:textColor="#9CA3AF"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- M-Pesa Info Section (Untouched) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardMpesa"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp"
-            android:layout_marginBottom="10dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="M-Pesa (Kenya)"
+                    android:text="M-Pesa Unlimited (24 Hours)"
                     android:textColor="#22C55E"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    android:textSize="18sp"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Till: 3043489 - KSh 500/Month"
-                    android:textColor="#9CA3AF"/>
+                    android:text="Till: 3043489 — KSh 30.00"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="5dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap to copy Till Number"
+                    android:textColor="#9CA3AF"
+                    android:textSize="12sp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- NEW FEATURE: M-Pesa Message Paste Box -->
-        <com.google.android.material.card.MaterialCardView
+        <!-- VERIFICATION BOX -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PASTE CONFIRMATION MESSAGE"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginBottom="5dp"/>
+
+        <EditText
+            android:id="@+id/etMpesaMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Instant Verification"
-                    android:textColor="#FFFFFF"
-                    android:textStyle="bold"/>
-                <EditText
-                    android:id="@+id/etMpesaMessage"
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:layout_marginTop="10dp"
-                    android:background="#33FFFFFF"
-                    android:gravity="top|start"
-                    android:hint="Paste M-Pesa Message Here..."
-                    android:padding="10dp"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#80FFFFFF"
-                    android:textSize="14sp" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnVerifyPayment"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="NOTIFY ADMIN NOW"
-                    app:backgroundTint="#22C55E" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:minHeight="100dp"
+            android:background="#1AFFFFFF"
+            android:gravity="top|start"
+            android:hint="Paste the M-Pesa message here..."
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#66FFFFFF"
+            android:textSize="14sp" />
 
-        <!-- Original Contact Admin Button (Restored) -->
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVerifyPayment"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:layout_marginTop="15dp"
+            android:text="ACTIVATE 24H UNLIMITED"
+            app:backgroundTint="#FF0033"
+            app:cornerRadius="8dp" />
+
+        <TextView
             android:id="@+id/btnContactAdmin"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginTop="10dp"
-            android:text="SEND SCREENSHOT TO ADMIN"
-            app:backgroundTint="#25D366"
-            app:cornerRadius="12dp" />
+            android:layout_height="wrap_content"
+            android:text="Need Help? Chat on WhatsApp"
+            android:textColor="#25D366"
+            android:textAlignment="center"
+            android:layout_marginTop="30dp"
+            android:padding="10dp"/>
 
     </LinearLayout>
 </ScrollView>
