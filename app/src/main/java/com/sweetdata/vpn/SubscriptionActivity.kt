@@ -18,40 +18,41 @@ import java.io.IOException
 
 class SubscriptionActivity : AppCompatActivity() {
 
-    // --- CONFIGURATION ---
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
     private val client = OkHttpClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Ensure the file is named activity_subscription.xml in your res/layout folder
+        // CHECK 1: Ensure your XML is named exactly activity_subscription.xml
         setContentView(R.layout.activity_subscription)
 
-        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
 
         // 1. Referral Section
         val tvReferralCode = findViewById<TextView>(R.id.tvReferralCode)
         val btnShareReferral = findViewById<MaterialButton>(R.id.btnShareReferral)
         
         val myReferralCode = "SD-" + deviceId.takeLast(6).uppercase()
-        tvReferralCode.text = "Your Code: $myReferralCode"
+        tvReferralCode?.text = "Your Code: $myReferralCode"
 
-        btnShareReferral.setOnClickListener {
-            val shareIntent = Intent(Intent.ACTION_SEND)
-            shareIntent.type = "text/plain"
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "Get SweetData VPN! Code: $myReferralCode")
-            startActivity(Intent.createChooser(shareIntent, "Share"))
+        btnShareReferral?.setOnClickListener {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "Get SweetData VPN! Use my Referral Code: $myReferralCode to get extra time.")
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share Referral Code"))
         }
 
-        // 2. PayPal Section
-        findViewById<MaterialCardView>(R.id.cardPaypal).setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/5"))
+        // 2. PayPal Section (30 Bob / $0.25)
+        findViewById<MaterialCardView>(R.id.cardPaypal)?.setOnClickListener {
+            // Updated link to reflect your 30 Bob ($0.25) price
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/paypalme/youraccount/0.25"))
             startActivity(intent)
         }
 
         // 3. M-Pesa Section (Till Copy)
-        findViewById<MaterialCardView>(R.id.cardMpesa).setOnClickListener {
+        findViewById<MaterialCardView>(R.id.cardMpesa)?.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Till", "3043489")
             clipboard.setPrimaryClip(clip)
@@ -62,18 +63,26 @@ class SubscriptionActivity : AppCompatActivity() {
         val etMpesaMessage = findViewById<EditText>(R.id.etMpesaMessage)
         val btnVerifyPayment = findViewById<MaterialButton>(R.id.btnVerifyPayment)
 
-        btnVerifyPayment.setOnClickListener {
-            val msg = etMpesaMessage.text.toString().trim()
+        btnVerifyPayment?.setOnClickListener {
+            val msg = etMpesaMessage?.text.toString().trim()
             if (msg.length < 15) {
-                Toast.makeText(this, "Paste full M-Pesa message!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please paste the full M-Pesa/PayPal message!", Toast.LENGTH_SHORT).show()
             } else {
-                val report = "💎 *SWEETDATA VIP REQUEST*\n\nID: `$deviceId`\n\nMsg: $msg"
+                val report = """
+                    💎 *SWEETDATA VIP REQUEST*
+                    ----------------------------
+                    *Device ID:* `$deviceId`
+                    *Referral:* `$myReferralCode`
+                    
+                    *Payment Message:*
+                    $msg
+                """.trimIndent()
                 sendToTelegram(report)
             }
         }
 
         // 5. Contact Admin
-        findViewById<MaterialButton>(R.id.btnContactAdmin).setOnClickListener {
+        findViewById<MaterialButton>(R.id.btnContactAdmin)?.setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
             startActivity(intent)
         }
@@ -88,14 +97,13 @@ class SubscriptionActivity : AppCompatActivity() {
             .build()
 
         val request = Request.Builder().url(url).post(body).build()
-
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { Toast.makeText(this@SubscriptionActivity, "Fail", Toast.LENGTH_SHORT).show() }
+                runOnUiThread { Toast.makeText(this@SubscriptionActivity, "Network Error. Try again.", Toast.LENGTH_SHORT).show() }
             }
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread {
-                    Toast.makeText(this@SubscriptionActivity, "Sent to Admin!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@SubscriptionActivity, "Proof sent! VIP will be active soon.", Toast.LENGTH_LONG).show()
                     finish()
                 }
                 response.close()
