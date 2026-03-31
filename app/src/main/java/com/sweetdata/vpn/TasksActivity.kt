@@ -38,14 +38,11 @@ class TasksActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // CRITICAL: Ensure this matches your XML filename exactly!
-        setContentView(R.layout.activity_task)
+        // FIXED: Ensuring this matches the plural name often used in manifests
+        setContentView(R.layout.activity_tasks)
 
         tvAdProgress = findViewById(R.id.tvAdProgress)
-        loadNextAd()
-        updateAdProgressUI()
-
-        // Link UI Elements
+        
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
         val btnPayForTask = findViewById<MaterialButton>(R.id.btnPayForTask)
         val btnSubmitTask = findViewById<MaterialButton>(R.id.btnSubmitTaskToAdmin)
@@ -55,11 +52,14 @@ class TasksActivity : AppCompatActivity() {
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
-        btnWatchAd.setOnClickListener {
+        loadNextAd()
+        updateAdProgressUI()
+
+        btnWatchAd?.setOnClickListener {
             showAdAndReward()
         }
 
-        btnPayForTask.setOnClickListener {
+        btnPayForTask?.setOnClickListener {
             if (etTitle.text.isNullOrBlank() || etLink.text.isNullOrBlank()) {
                 Toast.makeText(this, "Enter Title and Link first!", Toast.LENGTH_SHORT).show()
             } else {
@@ -71,7 +71,7 @@ class TasksActivity : AppCompatActivity() {
             }
         }
 
-        btnSubmitTask.setOnClickListener {
+        btnSubmitTask?.setOnClickListener {
             val msg = etPaymentMsg.text.toString().trim()
             if (msg.length < 10) {
                 Toast.makeText(this, "Paste full M-Pesa message", Toast.LENGTH_SHORT).show()
@@ -85,25 +85,13 @@ class TasksActivity : AppCompatActivity() {
                 sendToTelegram(adminReport)
             }
         }
-
-        findViewById<TextView>(R.id.tvSupport).setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626")))
-            } catch (e: Exception) {
-                Toast.makeText(this, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
     private fun loadNextAd() {
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) {
-                mInterstitialAd = ad
-            }
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                mInterstitialAd = null
-            }
+            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+            override fun onAdFailedToLoad(adError: LoadAdError) { mInterstitialAd = null }
         })
     }
 
@@ -114,39 +102,26 @@ class TasksActivity : AppCompatActivity() {
             handleRewardPoints()
             loadNextAd()
         } else {
-            Toast.makeText(this, "Ad loading... try again", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ad loading...", Toast.LENGTH_SHORT).show()
             loadNextAd()
         }
     }
 
     private fun handleRewardPoints() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var count = prefs.getInt("ad_count", 0)
-        count++
+        var count = prefs.getInt("ad_count", 0) + 1
 
         if (count >= 6) {
-            // Reward: 2 Hours (120 Minutes)
             val rewardMillis = 120 * 60 * 1000L
             val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
             val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
             val newExpiryTime = baseTime + rewardMillis
 
-            // 1. Update Local Storage
-            prefs.edit().apply {
-                putLong("expiry_time", newExpiryTime)
-                putInt("ad_count", 0)
-                apply()
-            }
+            prefs.edit().putLong("expiry_time", newExpiryTime).putInt("ad_count", 0).apply()
 
-            // 2. Sync to Firebase (Crucial for VPN service)
-            val userId = auth.currentUser?.uid
-            if (userId != null) {
+            auth.currentUser?.uid?.let { userId ->
                 database.child("users").child(userId).child("expiry_time").setValue(newExpiryTime)
-                    .addOnSuccessListener {
-                        Toast.makeText(this, "Time synced to cloud!", Toast.LENGTH_SHORT).show()
-                    }
             }
-
             Toast.makeText(this, "Success: 2 Hours Added!", Toast.LENGTH_LONG).show()
             finish() 
         } else {
@@ -156,8 +131,7 @@ class TasksActivity : AppCompatActivity() {
     }
 
     private fun updateAdProgressUI() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val count = prefs.getInt("ad_count", 0)
+        val count = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt("ad_count", 0)
         tvAdProgress.text = "Progress: $count/6 Ads Watched"
     }
 
@@ -169,17 +143,13 @@ class TasksActivity : AppCompatActivity() {
             .add("parse_mode", "Markdown")
             .build()
 
-        val request = Request.Builder().url(url).post(body).build()
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { Toast.makeText(this@TasksActivity, "Failed to send!", Toast.LENGTH_SHORT).show() }
-            }
+        client.newCall(Request.Builder().url(url).post(body).build()).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
-                runOnUiThread {
-                    Toast.makeText(this@TasksActivity, "Sent for approval!", Toast.LENGTH_LONG).show()
+                runOnUiThread { 
+                    Toast.makeText(this@TasksActivity, "Sent for approval!", Toast.LENGTH_SHORT).show()
                     finish()
                 }
-                response.close()
             }
         })
     }
