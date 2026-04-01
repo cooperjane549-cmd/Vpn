@@ -3,16 +3,22 @@ package com.sweetdata.vpn
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.VpnService
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -45,36 +51,34 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Initialize Firebase (Automatic via google-services.json)
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
-        // 2. Configure Google Sign-In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id)) // This comes from the JSON plugin
+            .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // 3. Link UI
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // 4. Network Toggle Logic (Kevin/Sherwin Alignment)
+        // 1. Mandatory Terms & Conditions Check
+        checkTermsAndConditions()
+
+        // 2. Battery Optimization Bypass (24/7 Uptime)
+        requestBatteryExemption()
+
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val internalName = if (checkedId == R.id.btnSafaricom) "Safaricom" else "Airtel"
-                val displayName = if (checkedId == R.id.btnSafaricom) "Kevin" else "Sherwin"
-                
                 prefs.edit().putString("selected_network", internalName).apply()
-                Toast.makeText(this, "Network: $displayName", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 5. Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -83,45 +87,69 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // 6. VPN Connect Logic
         btnConnect.setOnClickListener {
-            if (isVpnRunning) stopVpn() else checkAccessAndStart()
+            if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
-        // 7. Check Login Status
-        if (auth.currentUser == null) {
-            signInWithGoogle()
-        } else {
-            syncTimeFromFirebase()
-        }
+        if (auth.currentUser == null) signInWithGoogle() else syncTimeFromFirebase()
 
         MobileAds.initialize(this) {}
-        loadInterstitial()
+        loadInterstitial() // Pre-load ads immediately
     }
 
-    private fun signInWithGoogle() {
-        val signInIntent = googleSignInClient.signInIntent
-        googleLauncher.launch(signInIntent)
-    }
-
-    private val googleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)!!
-                firebaseAuthWithGoogle(account.idToken!!)
-            } catch (e: ApiException) {
-                Toast.makeText(this, "Login Failed", Toast.LENGTH_SHORT).show()
-            }
+    private fun checkTermsAndConditions() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("terms_accepted", false)) {
+            AlertDialog.Builder(this)
+                .setTitle("Terms of Service")
+                .setMessage("By using SweetData VPN, you agree to our terms. We do not support illegal use. This app optimizes your network via a secure tunnel.")
+                .setCancelable(false)
+                .setPositiveButton("Accept") { _, _ ->
+                    prefs.edit().putBoolean("terms_accepted", true).apply()
+                }
+                .setNegativeButton("Exit") { _, _ -> finish() }
+                .show()
         }
     }
 
-    private fun firebaseAuthWithGoogle(idToken: String) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                syncTimeFromFirebase()
-            }
+    private fun requestBatteryExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            AlertDialog.Builder(this)
+                .setTitle("Keep SweetData Alive")
+                .setMessage("To ensure 24/7 connectivity, please allow SweetData to run without battery restrictions.")
+                .setPositiveButton("Settings") { _, _ ->
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                }.show()
+        }
+    }
+
+    private fun validateAndConnect() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val selected = prefs.getString("selected_network", "Safaricom")
+        
+        // Smart SIM Detection before connecting
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        val currentCarrier = telephonyManager.networkOperatorName.lowercase()
+
+        if (selected == "Safaricom" && !currentCarrier.contains("safaricom")) {
+            Toast.makeText(this, "Please switch Mobile Data to Safaricom SIM", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        checkAccessAndStart()
+    }
+
+    private fun checkAccessAndStart() {
+        val expiry = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong("expiry_time", 0)
+        if (System.currentTimeMillis() < expiry) {
+            val intent = android.net.VpnService.prepare(this)
+            if (intent != null) startActivityForResult(intent, 102)
+            else onActivityResult(102, RESULT_OK, null)
+        } else {
+            Toast.makeText(this, "No time left! Get bundles in TASKS", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -156,21 +184,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkAccessAndStart() {
-        val expiry = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong("expiry_time", 0)
-        if (System.currentTimeMillis() < expiry) {
-            startVpnProcess()
-        } else {
-            Toast.makeText(this, "No time left! Get bundles in TASKS", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun startVpnProcess() {
-        val intent = VpnService.prepare(this)
-        if (intent != null) startActivityForResult(intent, 102)
-        else onActivityResult(102, RESULT_OK, null)
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102 && resultCode == RESULT_OK) {
@@ -178,6 +191,9 @@ class MainActivity : AppCompatActivity() {
             isVpnRunning = true
             btnConnect.text = "STOP"
             tvStatus.text = "CONNECTED"
+            
+            // Show ad after connecting to monetize the session
+            if (mInterstitialAd != null) mInterstitialAd?.show(this)
         }
     }
 
@@ -186,12 +202,36 @@ class MainActivity : AppCompatActivity() {
         isVpnRunning = false
         btnConnect.text = "CONNECT"
         updateBalanceUI()
+        loadInterstitial() // Reload ad for next time
     }
 
     private fun loadInterstitial() {
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+                override fun onAdFailedToLoad(p0: LoadAdError) { mInterstitialAd = null }
             })
+    }
+
+    private fun signInWithGoogle() {
+        val signInIntent = googleSignInClient.signInIntent
+        googleLauncher.launch(signInIntent)
+    }
+
+    private val googleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)!!
+                firebaseAuthWithGoogle(account.idToken!!)
+            } catch (e: ApiException) { }
+        }
+    }
+
+    private fun firebaseAuthWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) syncTimeFromFirebase()
+        }
     }
 }
