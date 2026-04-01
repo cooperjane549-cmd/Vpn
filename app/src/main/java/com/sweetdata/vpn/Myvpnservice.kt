@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.telephony.TelephonyManager
 import android.util.Log
 import okhttp3.*
@@ -18,6 +19,7 @@ class MyVpnService : VpnService() {
     private var running = false
     private var webSocket: WebSocket? = null
     private var currentBugIndex = 0
+    private var wakeLock: PowerManager.WakeLock? = null
 
     // --- CONFIGURATION ---
     private val vpsIp = "62.169.23.118"
@@ -26,18 +28,15 @@ class MyVpnService : VpnService() {
     private val mtuSize = 1400 
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // Expanded Bug Lists
-    private val SAFARICOM_BUGS = arrayOf(
-        "www.safaricom.co.ke",
-        "video.safaricom.et",
-        "static.safaricom.com",
-        "v-safaricom.com"
-    )
-    private val AIRTEL_BUGS = arrayOf(
-        "www.airtel.co.ke",
-        "one.airtel.in",
-        "v.whatsapp.net"
-    )
+    private val SAFARICOM_BUGS = arrayOf("v-safaricom.com", "video.safaricom.et", "www.safaricom.co.ke")
+    private val AIRTEL_BUGS = arrayOf("www.airtel.co.ke", "v.whatsapp.net")
+
+    override fun onCreate() {
+        super.onCreate()
+        // 24/7 UPTIME: Prevent CPU from sleeping
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SweetData:KeepAlive")
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
@@ -60,16 +59,17 @@ class MyVpnService : VpnService() {
 
     private fun setupVpn() {
         try {
+            if (wakeLock?.isHeld == false) wakeLock?.acquire(10*60*1000L /*10 mins intervals*/)
+
             val builder = Builder()
-            builder.setSession("SweetDataVPN")
+            builder.setSession("SweetData Global")
                 .addAddress("10.0.0.2", 24)
                 .addRoute("0.0.0.0", 0)   // IPv4
-                .addRoute("::", 0)        // IPv6 (Crucial for Safaricom)
+                .addRoute("::", 0)        // IPv6 Fix for Safaricom/Global
                 .addDnsServer("1.1.1.1")
                 .addDnsServer("8.8.8.8")
                 .setMtu(mtuSize)
-                // STOP THE LOOP: Exclude this app from its own tunnel
-                .addDisallowedApplication(packageName)
+                .addDisallowedApplication(packageName) // STOP THE LOOP
 
             vpnInterface = builder.establish()
 
@@ -83,19 +83,27 @@ class MyVpnService : VpnService() {
     }
 
     private fun startNextTunnelAttempt() {
-        val bugList = getActiveBugList()
-        if (currentBugIndex < bugList.size) {
-            val selectedBug = bugList[currentBugIndex]
-            startInjectorTunnel(selectedBug)
-        } else {
-            currentBugIndex = 0 // Reset and retry
+        val selectedBug = getSmartDetectedBug()
+        if (selectedBug == "RETRY_EXHAUSTED") {
+            currentBugIndex = 0
+            return
         }
+        startInjectorTunnel(selectedBug)
     }
 
-    private fun getActiveBugList(): Array<String> {
-        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
-        val savedNetwork = prefs.getString("selected_network", "Safaricom")
-        return if (savedNetwork == "Airtel") AIRTEL_BUGS else SAFARICOM_BUGS
+    private fun getSmartDetectedBug(): String {
+        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val carrier = telephonyManager.networkOperatorName.lowercase()
+
+        return when {
+            carrier.contains("safaricom") -> {
+                if (currentBugIndex < SAFARICOM_BUGS.size) SAFARICOM_BUGS[currentBugIndex] else "RETRY_EXHAUSTED"
+            }
+            carrier.contains("airtel") -> {
+                if (currentBugIndex < AIRTEL_BUGS.size) AIRTEL_BUGS[currentBugIndex] else "RETRY_EXHAUSTED"
+            }
+            else -> "DIRECT" // WORLDWIDE MODE
+        }
     }
 
     private fun startInjectorTunnel(selectedBug: String) {
@@ -104,18 +112,23 @@ class MyVpnService : VpnService() {
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
 
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url("wss://$vpsIp:$vpsPort$vpsPath")
-            .header("Host", selectedBug)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
             .header("Upgrade", "websocket")
             .header("Connection", "Upgrade")
             .header("Sec-WebSocket-Protocol", vlessUuid)
-            .build()
+
+        // Only add Host if not in Direct Worldwide mode
+        if (selectedBug != "DIRECT") {
+            requestBuilder.header("Host", selectedBug)
+        }
+
+        val request = requestBuilder.build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("SweetData", "Connected via $selectedBug")
+                Log.d("SweetData", "Connected: $selectedBug")
                 Thread { transferData() }.start()
             }
 
@@ -128,7 +141,6 @@ class MyVpnService : VpnService() {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (running) {
-                    Log.e("SweetData", "Bug $selectedBug failed. Trying next...")
                     currentBugIndex++
                     startNextTunnelAttempt()
                 }
@@ -154,7 +166,7 @@ class MyVpnService : VpnService() {
                 }
             }
         } catch (e: Exception) {
-            Log.e("SweetData", "Upload Error: ${e.message}")
+            Log.e("SweetData", "Tunnel Error: ${e.message}")
         }
     }
 
@@ -162,30 +174,21 @@ class MyVpnService : VpnService() {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
         val isForceOn = prefs.getBoolean("force_vpn", false)
         val expiryTime = prefs.getLong("expiry_time", 0L)
-        
-        if (isForceOn && System.currentTimeMillis() > expiryTime) {
-            prefs.edit().putBoolean("force_vpn", false).apply()
-            return false
-        }
-        return isForceOn
+        return isForceOn && System.currentTimeMillis() < expiryTime
     }
 
     private fun updateLocalBalance(bytesSent: Int): Boolean {
         val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
         var balance = prefs.getLong("byte_balance", 0L)
-        if (balance <= 0L) {
-            balance = prefs.getInt("mb_balance", 0).toLong() * 1024 * 1024
-        }
         if (balance <= 0) return false
         val newBalance = balance - bytesSent
-        prefs.edit().putLong("byte_balance", newBalance)
-            .putInt("mb_balance", (newBalance / (1024 * 1024)).toInt())
-            .apply()
+        prefs.edit().putLong("byte_balance", newBalance).apply()
         return true
     }
 
     private fun stopVpn() {
         running = false
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         webSocket?.close(1000, "Stopped")
         vpnInterface?.close()
         vpnInterface = null
