@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -15,35 +14,39 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import okhttp3.*
+import okhttp3.FormBody
 import java.io.IOException
 
 class SubscriptionActivity : AppCompatActivity() {
 
+    // Your Admin Credentials
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
+    private val PAYPAL_SUB_URL = "https://www.paypal.com/ncp/payment/L4GMUVK3ECXXA" // $0.25 Link
+    
     private val client = OkHttpClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        try {
-            setContentView(R.layout.activity_subscription)
-        } catch (e: Exception) {
-            // This catches theme or XML errors so the app doesn't just "vanish"
-            Toast.makeText(this, "Layout Error: Check your XML theme", Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
+        setContentView(R.layout.activity_subscription)
 
-        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "DEVICE"
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "DEVICE_UNKNOWN"
 
-        // Link UI Elements from your XML
+        // UI Components
+        val btnPayPayPal = findViewById<MaterialButton>(R.id.btnPayPayPal)
         val cardMpesa = findViewById<MaterialCardView>(R.id.cardMpesa)
         val etMpesaMessage = findViewById<EditText>(R.id.etMpesaMessage)
         val btnVerify = findViewById<MaterialButton>(R.id.btnVerifyPayment)
         val btnContactAdmin = findViewById<TextView>(R.id.btnContactAdmin)
 
-        // 1. Copy Till Number Logic
+        // 1. GLOBAL PAYMENT: PayPal ($0.25)
+        btnPayPayPal?.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_SUB_URL))
+            startActivity(intent)
+            Toast.makeText(this, "After paying, click VERIFY below", Toast.LENGTH_LONG).show()
+        }
+
+        // 2. LOCAL PAYMENT: M-Pesa Till Copy
         cardMpesa?.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Till", "3043489")
@@ -51,53 +54,57 @@ class SubscriptionActivity : AppCompatActivity() {
             Toast.makeText(this, "Till 3043489 Copied! Pay 30 KES", Toast.LENGTH_SHORT).show()
         }
 
-        // 2. Submit Logic
+        // 3. SUBMISSION BRIDGE (Telegram)
         btnVerify?.setOnClickListener {
             val msg = etMpesaMessage?.text?.toString()?.trim() ?: ""
+            
             if (msg.isEmpty()) {
-                Toast.makeText(this, "Please paste the M-Pesa message first", Toast.LENGTH_SHORT).show()
-            } else if (msg.length < 15) {
-                Toast.makeText(this, "Message too short! Paste the full text", Toast.LENGTH_SHORT).show()
+                // If they paid via PayPal, they might just want to send their ID
+                val report = "💎 *PAYPAL/SUBSCRIPTION VERIFY*\nID: `$deviceId`"
+                sendToTelegram(report)
             } else {
-                val report = "💎 *SUBSCRIPTION REQUEST*\nID: $deviceId\n\n*Message:* $msg"
+                // Standard M-Pesa flow
+                val report = "💎 *MPESA SUBSCRIPTION*\nID: `$deviceId`\n\n*Message:* $msg"
                 sendToTelegram(report)
             }
         }
 
-        // 3. WhatsApp Support Logic
+        // 4. WHATSAPP SUPPORT (Manual Payments/Help)
         btnContactAdmin?.setOnClickListener {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(this, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
-            }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
+            startActivity(intent)
         }
     }
 
     private fun sendToTelegram(text: String) {
         val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
+        
+        // Using FormBody prevents 404/Encoding errors with M-Pesa symbols
         val body = FormBody.Builder()
             .add("chat_id", ADMIN_CHAT_ID)
             .add("text", text)
             .add("parse_mode", "Markdown")
             .build()
 
-        val request = Request.Builder().url(url).post(body).build()
+        val request = Request.Builder()
+            .url(url)
+            .post(body)
+            .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { 
-                    Toast.makeText(this@SubscriptionActivity, "Network Error. Try again.", Toast.LENGTH_SHORT).show() 
+                runOnUiThread {
+                    Toast.makeText(this@SubscriptionActivity, "Network Error. Check internet.", Toast.LENGTH_SHORT).show()
                 }
             }
+
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread {
                     if (response.isSuccessful) {
-                        Toast.makeText(this@SubscriptionActivity, "Sent! 24H activating soon.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@SubscriptionActivity, "Request Sent! Admin will activate soon.", Toast.LENGTH_LONG).show()
                         finish()
                     } else {
-                        Toast.makeText(this@SubscriptionActivity, "Server Error: ${response.code}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@SubscriptionActivity, "Error: ${response.code}. Try WhatsApp.", Toast.LENGTH_SHORT).show()
                     }
                 }
                 response.close()
