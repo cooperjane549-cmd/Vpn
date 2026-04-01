@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
@@ -27,6 +28,7 @@ class TasksActivity : AppCompatActivity() {
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
     private val INTERSTITIAL_ID = "ca-app-pub-2344867686796379/4612206920"
+    private val PAYPAL_TASK_URL = "https://www.paypal.com/ncp/payment/E9WS362E37NPL" // $5 Link
     private val PREFS_NAME = "SweetDataPrefs"
 
     private var mInterstitialAd: InterstitialAd? = null
@@ -39,85 +41,71 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        // 1. Link UI with safe-finds
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "DEVICE"
+
         tvAdProgress = findViewById(R.id.tvAdProgress)
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
-        val btnPayForTask = findViewById<MaterialButton>(R.id.btnPayForTask)
+        val btnPayPayPalTask = findViewById<MaterialButton>(R.id.btnPayPayPalTask)
+        val btnCopyTill = findViewById<MaterialButton>(R.id.btnCopyTillTask)
         val btnSubmitTask = findViewById<MaterialButton>(R.id.btnSubmitTaskToAdmin)
-        val cardTaskPayment = findViewById<MaterialCardView>(R.id.cardTaskPayment)
         
         val etTitle = findViewById<EditText>(R.id.etTaskTitle)
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
-        loadNextAd()
+        loadNextAd() // Pre-cache ad on entry
         updateAdProgressUI()
 
-        // 2. Watch Ad Button
+        // 1. WATCH AD FOR 2 HOURS (6 ADS)
         btnWatchAd?.setOnClickListener {
-            showAdAndReward()
-        }
-
-        // 3. Pay for Task Button
-        btnPayForTask?.setOnClickListener {
-            val titleText = etTitle?.text?.toString()?.trim() ?: ""
-            if (titleText.isEmpty()) {
-                Toast.makeText(this, "Enter Title first!", Toast.LENGTH_SHORT).show()
+            if (mInterstitialAd != null) {
+                mInterstitialAd?.show(this)
+                handleAdReward()
             } else {
-                cardTaskPayment?.visibility = View.VISIBLE
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
-                Toast.makeText(this, "Till 3043489 Copied!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Ad still loading... please wait", Toast.LENGTH_SHORT).show()
+                loadNextAd()
             }
         }
 
-        // 4. Submit Proof Button
+        // 2. CREATE TASK: PAYPAL ($5 / 1200 SPOTS)
+        btnPayPayPalTask?.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_TASK_URL)))
+            Toast.makeText(this, "Pay $5, then paste proof below", Toast.LENGTH_LONG).show()
+        }
+
+        // 3. CREATE TASK: MPESA (KES 450 / 1200 SPOTS)
+        btnCopyTill?.setOnClickListener {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
+            Toast.makeText(this, "Till 3043489 Copied! Pay Kes 450", Toast.LENGTH_SHORT).show()
+        }
+
+        // 4. SUBMIT PROMO FOR ADMIN APPROVAL
         btnSubmitTask?.setOnClickListener {
+            val title = etTitle?.text?.toString()?.trim() ?: ""
+            val link = etLink?.text?.toString()?.trim() ?: ""
             val msg = etPaymentMsg?.text?.toString()?.trim() ?: ""
-            if (msg.length < 10) {
-                Toast.makeText(this, "Paste the full M-Pesa message", Toast.LENGTH_SHORT).show()
+
+            if (title.isEmpty() || link.isEmpty() || msg.isEmpty()) {
+                Toast.makeText(this, "Fill all fields first!", Toast.LENGTH_SHORT).show()
             } else {
-                val report = "🆕 *TASK PROMO*\nTitle: ${etTitle?.text}\nLink: ${etLink?.text}\nProof: $msg"
+                val report = "🚀 *NEW TASK PROMO REQUEST*\n" +
+                        "👤 ID: `$deviceId` \n" +
+                        "📌 Title: $title\n" +
+                        "🔗 Link: $link\n" +
+                        "💰 Proof: $msg\n" +
+                        "📊 Target: 1,200 Spots"
                 sendToTelegram(report)
             }
         }
-
-        // 5. WhatsApp Support
-        findViewById<TextView>(R.id.tvSupport)?.setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626")))
-            } catch (e: Exception) {
-                Toast.makeText(this, "WhatsApp not found", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
-    private fun loadNextAd() {
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
-            override fun onAdFailedToLoad(adError: LoadAdError) { mInterstitialAd = null }
-        })
-    }
-
-    private fun showAdAndReward() {
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.show(this)
-            mInterstitialAd = null
-            handleRewardPoints()
-            loadNextAd()
-        } else {
-            Toast.makeText(this, "Ad loading... try again", Toast.LENGTH_SHORT).show()
-            loadNextAd()
-        }
-    }
-
-    private fun handleRewardPoints() {
+    private fun handleAdReward() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         var count = prefs.getInt("ad_count", 0) + 1
 
         if (count >= 6) {
-            val rewardMillis = 120 * 60 * 1000L
+            val rewardMillis = 120 * 60 * 1000L // 2 Hours
             val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
             val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
             val newExpiryTime = baseTime + rewardMillis
@@ -127,17 +115,26 @@ class TasksActivity : AppCompatActivity() {
             auth.currentUser?.uid?.let {
                 database.child("users").child(it).child("expiry_time").setValue(newExpiryTime)
             }
-            Toast.makeText(this, "2 Hours Added!", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "REWARDED: 2 Hours Added!", Toast.LENGTH_LONG).show()
             finish()
         } else {
             prefs.edit().putInt("ad_count", count).apply()
             updateAdProgressUI()
+            loadNextAd() // Load next for the next click
         }
     }
 
     private fun updateAdProgressUI() {
         val count = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt("ad_count", 0)
-        tvAdProgress?.text = "Progress: $count/6 Ads Watched"
+        tvAdProgress?.text = "AD PROGRESS: $count/6"
+    }
+
+    private fun loadNextAd() {
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+            override fun onAdFailedToLoad(error: LoadAdError) { mInterstitialAd = null }
+        })
     }
 
     private fun sendToTelegram(text: String) {
@@ -148,12 +145,15 @@ class TasksActivity : AppCompatActivity() {
             .build()
 
         client.newCall(Request.Builder().url("https://api.telegram.org/bot$BOT_TOKEN/sendMessage").post(body).build()).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { Toast.makeText(this@TasksActivity, "Failed! Check connection", Toast.LENGTH_SHORT).show() }
+            }
             override fun onResponse(call: Call, response: Response) {
                 runOnUiThread { 
-                    Toast.makeText(this@TasksActivity, "Sent for approval!", Toast.LENGTH_SHORT).show()
-                    finish()
+                    Toast.makeText(this@TasksActivity, "Sent! Admin will approve soon.", Toast.LENGTH_LONG).show()
+                    finish() 
                 }
+                response.close()
             }
         })
     }
