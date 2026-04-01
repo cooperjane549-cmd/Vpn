@@ -21,7 +21,54 @@
             android:textStyle="bold"
             android:layout_marginBottom="20dp"/>
 
-        <!-- M-PESA 24HR SECTION -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#1AFFFFFF"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="15dp">
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="vertical">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Global Unlimited (24 Hours)"
+                    android:textColor="#0070BA" 
+                    android:textStyle="bold"
+                    android:textSize="18sp"/>
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PayPal Payment — $0.25 USD"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="5dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPayPayPal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="PAY VIA PAYPAL"
+                    app:backgroundTint="#0070BA"
+                    app:cornerRadius="8dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="OR USE M-PESA (KENYA ONLY)"
+            android:textColor="#66FFFFFF"
+            android:textSize="10sp"
+            android:textAlignment="center"
+            android:layout_marginBottom="15dp"/>
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardMpesa"
             android:layout_width="match_parent"
@@ -58,7 +105,6 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- VERIFICATION BOX -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -74,7 +120,7 @@
             android:minHeight="100dp"
             android:background="#1AFFFFFF"
             android:gravity="top|start"
-            android:hint="Paste the M-Pesa message here..."
+            android:hint="Paste M-Pesa or PayPal Proof here..."
             android:padding="12dp"
             android:textColor="#FFFFFF"
             android:textColorHint="#66FFFFFF"
@@ -85,7 +131,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="15dp"
-            android:text="ACTIVATE 24H UNLIMITED"
+            android:text="VERIFY &amp; ACTIVATE"
             app:backgroundTint="#FF0033"
             app:cornerRadius="8dp" />
 
