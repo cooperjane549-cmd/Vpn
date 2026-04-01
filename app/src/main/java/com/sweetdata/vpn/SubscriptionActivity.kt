@@ -71,7 +71,7 @@ class SubscriptionActivity : AppCompatActivity() {
 
         // 4. WHATSAPP SUPPORT (Manual Payments/Help)
         btnContactAdmin?.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254799978626"))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254789574046"))
             startActivity(intent)
         }
     }
@@ -83,7 +83,7 @@ class SubscriptionActivity : AppCompatActivity() {
         val body = FormBody.Builder()
             .add("chat_id", ADMIN_CHAT_ID)
             .add("text", text)
-            .add("parse_mode", "Markdown")
+            .add("parse_mode", "HTML")
             .build()
 
         val request = Request.Builder()
