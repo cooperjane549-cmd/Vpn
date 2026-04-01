@@ -28,7 +28,7 @@ class MyVpnService : VpnService() {
     private val mtuSize = 1400 
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    private val SAFARICOM_BUGS = arrayOf("v-safaricom.com", "video.safaricom.et", "www.safaricom.co.ke")
+    private val SAFARICOM_BUGS = arrayOf("biladata.safaricom.co.ke", "v-safaricom.com", "video.safaricom.et", "www.safaricom.co.ke")
     private val AIRTEL_BUGS = arrayOf("www.airtel.co.ke", "v.whatsapp.net")
 
     override fun onCreate() {
