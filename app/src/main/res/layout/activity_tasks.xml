@@ -1,170 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#090909"
-    android:fillViewport="true">
+    android:padding="20dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:orientation="vertical">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="TASKS &amp; REWARDS"
-            android:textColor="#FF0033"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp">
-            
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🚀 UNLOCK 2HRS UNLIMITED"
-                    android:textColor="#FFFFFF"
-                    android:textStyle="bold"/>
-                
-                <TextView
-                    android:id="@+id/tvAdProgress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="AD PROGRESS: 0/6"
-                    android:textColor="#9CA3AF"/>
-                
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnWatchAd"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="WATCH AD TO UNLOCK"
-                    app:backgroundTint="#22C55E" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:text="Get 24 Hours Unlimited Access"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="PROMOTE YOUR PAGE (1,200 SPOTS)"
-            android:textColor="#FFFFFF"
+            android:text="Price: Kes 30 or $0.25"
+            android:gravity="center"
+            android:textColor="#4CAF50"
+            android:textSize="18sp"
+            android:layout_marginBottom="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPayMpesa"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pay via M-Pesa (Till 3043489)" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPayPaypal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pay via PayPal ($0.25)"
+            android:layout_marginTop="10dp" />
+
+        <EditText
+            android:id="@+id/etMpesaMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Paste M-Pesa or PayPal message here"
             android:layout_marginTop="30dp"
-            android:textStyle="bold" />
+            android:minHeight="100dp"
+            android:gravity="top"
+            android:background="@android:drawable/editbox_background"/>
 
-        <com.google.android.material.card.MaterialCardView
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSubmitPayment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="Submit Proof to Admin"
             android:layout_marginTop="10dp"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp">
-            
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                
-                <EditText
-                    android:id="@+id/etTaskTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Task Title (e.g. Follow my TikTok)"
-                    android:textColorHint="#80FFFFFF"
-                    android:textColor="#FFFFFF" />
-
-                <EditText
-                    android:id="@+id/etTaskLink"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Social Media Link (URL)"
-                    android:textColorHint="#80FFFFFF"
-                    android:textColor="#FFFFFF"
-                    android:layout_marginTop="10dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPayPayPalTask"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
-                    android:text="PAY VIA PAYPAL ($5.00)"
-                    app:backgroundTint="#0070BA" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCopyTillTask"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="PAY VIA M-PESA (KES 450)"
-                    app:backgroundTint="#22C55E" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="PASTE PAYMENT MESSAGE BELOW"
-            android:textColor="#9CA3AF"
-            android:textSize="10sp"
-            android:layout_marginTop="20dp"
-            android:layout_gravity="center"/>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardTaskPayment"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            app:cardBackgroundColor="#22FFFFFF">
-            
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                
-                <EditText
-                    android:id="@+id/etTaskPaymentMsg"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:minHeight="80dp"
-                    android:hint="Paste PayPal or M-Pesa proof here..."
-                    android:textColor="#FFFFFF"
-                    android:background="#33FFFFFF"
-                    android:padding="8dp"
-                    android:gravity="top"/>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSubmitTaskToAdmin"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="SUBMIT TASK FOR APPROVAL"
-                    app:backgroundTint="#FF0033" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <TextView
-            android:id="@+id/tvSupport"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Support: +254799978626 (WhatsApp)"
-            android:textColor="#25D366"
-            android:textAlignment="center"
-            android:layout_marginTop="30dp"
-            android:paddingBottom="20dp"/>
+            android:backgroundTint="#FF9800" />
 
     </LinearLayout>
 </ScrollView>
