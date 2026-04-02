@@ -62,10 +62,10 @@ class MainActivity : AppCompatActivity() {
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // Mandatory Terms & Conditions Check
+        // 1. Mandatory Terms & Conditions Check
         checkTermsAndConditions()
 
-        // Battery Optimization Bypass
+        // 2. Battery Optimization Bypass
         requestBatteryExemption()
 
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // NAVIGATION BUTTONS
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -84,59 +85,51 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
+        // NEW: SHARE BUTTON LOGIC
+        findViewById<MaterialButton>(R.id.btnShareApp).setOnClickListener {
+            shareAppWithFriends()
+        }
+
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
         if (auth.currentUser == null) signInWithGoogle() else syncTimeFromFirebase()
 
-        // Initialize Ads
+        // Initialize Ads with Auto-Retry
         MobileAds.initialize(this) {}
         loadInterstitial() 
     }
 
-    private fun checkTermsAndConditions() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("terms_accepted", false)) {
-            AlertDialog.Builder(this)
-                .setTitle("Terms of Service")
-                .setMessage("By using SweetData VPN, you agree to our terms. We do not support illegal use. This app optimizes your network via a secure tunnel.")
-                .setCancelable(false)
-                .setPositiveButton("Accept") { _, _ ->
-                    prefs.edit().putBoolean("terms_accepted", true).apply()
-                }
-                .setNegativeButton("Exit") { _, _ -> finish() }
-                .show()
-        }
+    // --- SHARE FEATURE ---
+    private fun shareAppWithFriends() {
+        val shareMessage = """
+            🚀 Hey! Try *SweetData VPN* for fast and unlimited Safaricom/Airtel browsing.
+            
+            ✅ Stable connection
+            ✅ Watch ads to get free time
+            ✅ Cheap premium plans
+            
+            Download it here: https://your-download-link.com/app.apk
+        """.trimIndent()
+
+        val intent = Intent(Intent.ACTION_SEND)
+        intent.type = "text/plain"
+        intent.putExtra(Intent.EXTRA_TEXT, shareMessage)
+        startActivity(Intent.createChooser(intent, "Share SweetData via"))
     }
 
-    private fun requestBatteryExemption() {
-        val pm = getSystemService(POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            AlertDialog.Builder(this)
-                .setTitle("Keep SweetData Alive")
-                .setMessage("To ensure 24/7 connectivity, please allow SweetData to run without battery restrictions.")
-                .setPositiveButton("Settings") { _, _ ->
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                }.show()
-        }
-    }
-
+    // --- VPN & SIM LOGIC (RELAXED FOR FREEDOM) ---
     private fun validateAndConnect() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val selected = prefs.getString("selected_network", "Safaricom")
         
         val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         val currentCarrier = try { 
-            telephonyManager.networkOperatorName.ifEmpty { "Unknown Network" } 
-        } catch(e: Exception) { 
-            "Unknown" 
-        }
+            telephonyManager.networkOperatorName.ifEmpty { "Unknown" } 
+        } catch(e: Exception) { "Unknown" }
 
-        // We inform the user but we NO LONGER block them. 
-        Toast.makeText(this, "Connecting via $currentCarrier ($selected)", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Connecting: $currentCarrier ($selected Mode)", Toast.LENGTH_SHORT).show()
         checkAccessAndStart()
     }
 
@@ -151,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // --- FIREBASE SYNC ---
     private fun syncTimeFromFirebase() {
         val userId = auth.currentUser?.uid ?: return
         database.child("users").child(userId).child("expiry_time")
@@ -182,30 +176,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 102 && resultCode == RESULT_OK) {
-            startService(Intent(this, MyVpnService::class.java))
-            isVpnRunning = true
-            btnConnect.text = "STOP"
-            tvStatus.text = "CONNECTED"
-            
-            if (mInterstitialAd != null) {
-                mInterstitialAd?.show(this)
-            } else {
-                loadInterstitial() 
-            }
-        }
-    }
-
-    private fun stopVpn() {
-        startService(Intent(this, MyVpnService::class.java).apply { action = "STOP" })
-        isVpnRunning = false
-        btnConnect.text = "CONNECT"
-        updateBalanceUI()
-        loadInterstitial() 
-    }
-
+    // --- ADS LOGIC ---
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
@@ -217,22 +188,65 @@ class MainActivity : AppCompatActivity() {
                             mInterstitialAd = null
                             loadInterstitial() 
                         }
-                        override fun onAdFailedToShowFullScreenContent(p0: AdError) {
-                            mInterstitialAd = null
-                            loadInterstitial()
-                        }
                     }
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     mInterstitialAd = null
-                    // Retry after 15 seconds if failed
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         loadInterstitial()
-                    }, 15000)
+                    }, 15000) // Retry every 15s
                 }
             })
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 102 && resultCode == RESULT_OK) {
+            startService(Intent(this, MyVpnService::class.java))
+            isVpnRunning = true
+            btnConnect.text = "STOP"
+            tvStatus.text = "CONNECTED"
+            if (mInterstitialAd != null) mInterstitialAd?.show(this)
+        }
+    }
+
+    private fun stopVpn() {
+        startService(Intent(this, MyVpnService::class.java).apply { action = "STOP" })
+        isVpnRunning = false
+        btnConnect.text = "CONNECT"
+        updateBalanceUI()
+        loadInterstitial() 
+    }
+
+    // --- ORIGINAL PROTECTION LOGIC ---
+    private fun checkTermsAndConditions() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("terms_accepted", false)) {
+            AlertDialog.Builder(this)
+                .setTitle("Terms of Service")
+                .setMessage("By using SweetData VPN, you agree to our terms.")
+                .setCancelable(false)
+                .setPositiveButton("Accept") { _, _ -> prefs.edit().putBoolean("terms_accepted", true).apply() }
+                .setNegativeButton("Exit") { _, _ -> finish() }
+                .show()
+        }
+    }
+
+    private fun requestBatteryExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            AlertDialog.Builder(this)
+                .setTitle("Keep SweetData Alive")
+                .setMessage("Allow background usage to stay connected.")
+                .setPositiveButton("Settings") { _, _ ->
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                }.show()
+        }
+    }
+
+    // --- GOOGLE AUTH ---
     private fun signInWithGoogle() {
         val signInIntent = googleSignInClient.signInIntent
         googleLauncher.launch(signInIntent)
