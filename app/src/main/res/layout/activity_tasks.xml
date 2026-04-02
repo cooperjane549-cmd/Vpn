@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="20dp">
+    android:padding="16dp"
+    android:background="#FFFFFF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -10,53 +12,137 @@
         android:orientation="vertical">
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Get 24 Hours Unlimited Access"
-            android:textSize="20sp"
+            android:text="Tasks &amp; Rewards"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="20dp" />
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            android:textColor="#000000" />
 
-        <TextView
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Price: Kes 30 or $0.25"
-            android:gravity="center"
-            android:textColor="#4CAF50"
-            android:textSize="18sp"
-            android:layout_marginBottom="20dp" />
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPayMpesa"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Free Access (6 Ads = 2 Hours)"
+                    android:textStyle="bold"
+                    android:textColor="#333" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnWatchAd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Watch Ad"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pay via M-Pesa (Till 3043489)" />
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPayPaypal"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Earn 5 Minutes (Complete Task)"
+                    android:textStyle="bold"
+                    android:textColor="#333" />
+
+                <EditText
+                    android:id="@+id/etWorkProof"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Paste your FB Username / Proof here"
+                    android:layout_marginTop="8dp"
+                    android:background="@android:drawable/editbox_background"
+                    android:padding="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSubmitWorkProof"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Submit Work Proof"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#4CAF50" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pay via PayPal ($0.25)"
-            android:layout_marginTop="10dp" />
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
 
-        <EditText
-            android:id="@+id/etMpesaMessage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Paste M-Pesa or PayPal message here"
-            android:layout_marginTop="30dp"
-            android:minHeight="100dp"
-            android:gravity="top"
-            android:background="@android:drawable/editbox_background"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSubmitPayment"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Submit Proof to Admin"
-            android:layout_marginTop="10dp"
-            android:backgroundTint="#FF9800" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Advertisers: List your Task ($5 / Kes 450)"
+                    android:textStyle="bold"
+                    android:textColor="#333" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPayAdvertiserMpesa"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Pay via M-Pesa (Till)"
+                    android:layout_marginTop="8dp"
+                    app:icon="@android:drawable/ic_menu_send" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPayAdvertiserPaypal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Pay via PayPal"
+                    android:layout_marginTop="4dp" />
+
+                <EditText
+                    android:id="@+id/etAdvertiserProof"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Paste Payment Proof &amp; Task Link"
+                    android:layout_marginTop="12dp"
+                    android:background="@android:drawable/editbox_background"
+                    android:padding="10dp"
+                    android:minLines="2" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSubmitAdvertiserTask"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Submit Advertisement Request"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#2196F3" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
     </LinearLayout>
 </ScrollView>
