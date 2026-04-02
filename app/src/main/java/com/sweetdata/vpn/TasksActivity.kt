@@ -7,11 +7,13 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.*
 
 class TasksActivity : AppCompatActivity() {
 
@@ -26,47 +28,39 @@ class TasksActivity : AppCompatActivity() {
         MobileAds.initialize(this)
         loadAd()
 
-        // WORKER: Watch Ad
-        findViewById<Button>(R.id.btnWatchAd).setOnClickListener {
-            if (mInterstitialAd != null) mInterstitialAd?.show(this) 
-            else { loadAd(); Toast.makeText(this, "Ad loading...", Toast.LENGTH_SHORT).show() }
-        }
+        // Setup RecyclerView for SproutGigs style list
+        val rv = findViewById<RecyclerView>(R.id.rvActiveTasks)
+        rv.layoutManager = LinearLayoutManager(this)
 
-        // ADVERTISER: Payment Buttons
-        findViewById<Button>(R.id.btnPayMpesa).setOnClickListener {
-            Toast.makeText(this, "Pay 450 to Till 3043489", Toast.LENGTH_LONG).show()
-        }
-        findViewById<Button>(R.id.btnPayPaypal).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL")))
-        }
-
-        // ADVERTISER: Post Job Logic
+        // --- ADVERTISER: POST JOB ---
         findViewById<Button>(R.id.btnSubmitAdRequest).setOnClickListener {
             val title = findViewById<EditText>(R.id.etAdTitle).text.toString().trim()
             val link = findViewById<EditText>(R.id.etAdLink).text.toString().trim()
             val proof = findViewById<EditText>(R.id.etPaymentProof).text.toString().trim()
 
-            if (title.isEmpty() || proof.isEmpty()) {
-                Toast.makeText(this, "Fill in Job Title and Proof Message", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            if (title.isNotEmpty() && proof.isNotEmpty()) {
+                val jobData = mapOf(
+                    "uid" to (auth.currentUser?.uid ?: ""),
+                    "title" to title,
+                    "link" to link,
+                    "proof_sent" to proof,
+                    "type" to "JOB_POST_REQUEST"
+                )
+                database.child("admin_verifications").push().setValue(jobData)
+                    .addOnSuccessListener { 
+                        Toast.makeText(this, "Job Posted! Waiting for Admin.", Toast.LENGTH_SHORT).show() 
+                    }
             }
+        }
 
-            val jobData = mapOf(
-                "uid" to (auth.currentUser?.uid ?: ""),
-                "email" to (auth.currentUser?.email ?: ""),
-                "jobTitle" to title,
-                "jobLink" to link,
-                "paymentProof" to proof,
-                "status" to "pending",
-                "type" to "SPROUT_JOB_POST",
-                "timestamp" to System.currentTimeMillis()
-            )
-
-            database.child("admin_verifications").push().setValue(jobData)
-                .addOnSuccessListener {
-                    Toast.makeText(this, "Job sent for verification!", Toast.LENGTH_LONG).show()
-                    finish()
-                }
+        // --- WORKER: WATCH ADS ---
+        findViewById<Button>(R.id.btnWatchAd).setOnClickListener {
+            mInterstitialAd?.show(this) ?: loadAd()
+        }
+        
+        // --- ADVERTISER: PAY BUTTONS ---
+        findViewById<Button>(R.id.btnPayMpesa).setOnClickListener {
+            Toast.makeText(this, "Till: 3043489", Toast.LENGTH_LONG).show()
         }
     }
 
