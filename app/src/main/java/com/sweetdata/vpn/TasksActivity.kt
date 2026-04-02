@@ -3,18 +3,18 @@ package com.sweetdata.vpn
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
-import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 
 class TasksActivity : AppCompatActivity() {
-    
+
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance("https://sweetdatavpn-default-rtdb.firebaseio.com/").reference
     private var mInterstitialAd: InterstitialAd? = null
@@ -23,98 +23,58 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        // Load Initial Ad
-        loadNextAd()
+        MobileAds.initialize(this)
+        loadAd()
 
-        // --- SECTION 1: ADS (2 HOURS) ---
-        val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
-        btnWatchAd.setOnClickListener {
-            if (mInterstitialAd != null) {
-                mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                    override fun onAdDismissedFullScreenContent() {
-                        mInterstitialAd = null
-                        Toast.makeText(this@TasksActivity, "Ad watched! Progress saved.", Toast.LENGTH_SHORT).show()
-                        loadNextAd()
-                    }
+        // WORKER: Watch Ad
+        findViewById<Button>(R.id.btnWatchAd).setOnClickListener {
+            if (mInterstitialAd != null) mInterstitialAd?.show(this) 
+            else { loadAd(); Toast.makeText(this, "Ad loading...", Toast.LENGTH_SHORT).show() }
+        }
+
+        // ADVERTISER: Payment Buttons
+        findViewById<Button>(R.id.btnPayMpesa).setOnClickListener {
+            Toast.makeText(this, "Pay 450 to Till 3043489", Toast.LENGTH_LONG).show()
+        }
+        findViewById<Button>(R.id.btnPayPaypal).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL")))
+        }
+
+        // ADVERTISER: Post Job Logic
+        findViewById<Button>(R.id.btnSubmitAdRequest).setOnClickListener {
+            val title = findViewById<EditText>(R.id.etAdTitle).text.toString().trim()
+            val link = findViewById<EditText>(R.id.etAdLink).text.toString().trim()
+            val proof = findViewById<EditText>(R.id.etPaymentProof).text.toString().trim()
+
+            if (title.isEmpty() || proof.isEmpty()) {
+                Toast.makeText(this, "Fill in Job Title and Proof Message", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val jobData = mapOf(
+                "uid" to (auth.currentUser?.uid ?: ""),
+                "email" to (auth.currentUser?.email ?: ""),
+                "jobTitle" to title,
+                "jobLink" to link,
+                "paymentProof" to proof,
+                "status" to "pending",
+                "type" to "SPROUT_JOB_POST",
+                "timestamp" to System.currentTimeMillis()
+            )
+
+            database.child("admin_verifications").push().setValue(jobData)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Job sent for verification!", Toast.LENGTH_LONG).show()
+                    finish()
                 }
-                mInterstitialAd?.show(this)
-            } else {
-                Toast.makeText(this, "Ad is still loading...", Toast.LENGTH_SHORT).show()
-                loadNextAd()
-            }
-        }
-
-        // --- SECTION 2: WORKER PROOF (5 MINS) ---
-        val etWorkProof = findViewById<EditText>(R.id.etWorkProof)
-        val btnSubmitWorkProof = findViewById<MaterialButton>(R.id.btnSubmitWorkProof)
-        
-        btnSubmitWorkProof.setOnClickListener {
-            val proofText = etWorkProof.text.toString().trim()
-            if (proofText.isNotEmpty()) {
-                submitRequest(proofText, "WORK_5MIN")
-            } else {
-                Toast.makeText(this, "Please enter proof of work", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // --- SECTION 3: ADVERTISER PAYMENT & TASK CREATION ($5) ---
-        val btnPayAdvertiserMpesa = findViewById<MaterialButton>(R.id.btnPayAdvertiserMpesa)
-        val btnPayAdvertiserPaypal = findViewById<MaterialButton>(R.id.btnPayAdvertiserPaypal)
-        
-        // This ID now matches the "Dark Card" XML exactly
-        val etAdvertiserTaskDetails = findViewById<EditText>(R.id.etAdvertiserTaskDetails)
-        val btnSubmitAdvertiserTask = findViewById<MaterialButton>(R.id.btnSubmitAdvertiserTask)
-
-        btnPayAdvertiserMpesa.setOnClickListener {
-            Toast.makeText(this, "Pay Kes 450 to Till: 3043489", Toast.LENGTH_LONG).show()
-            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Till", "3043489"))
-        }
-
-        btnPayAdvertiserPaypal.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL"))
-            startActivity(intent)
-        }
-
-        btnSubmitAdvertiserTask.setOnClickListener {
-            val taskInfo = etAdvertiserTaskDetails.text.toString().trim()
-            if (taskInfo.isNotEmpty()) {
-                submitRequest(taskInfo, "AD_LISTING_450")
-            } else {
-                Toast.makeText(this, "Enter Task Details & Payment Proof", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 
-    private fun submitRequest(proof: String, type: String) {
-        val user = auth.currentUser ?: return
-        val data = HashMap<String, Any>()
-        data["email"] = user.email ?: "No Email"
-        data["uid"] = user.uid
-        data["proof"] = proof
-        data["status"] = "pending"
-        data["type"] = type
-        data["timestamp"] = System.currentTimeMillis()
-
-        database.child("admin_verifications").push().setValue(data)
-            .addOnSuccessListener {
-                Toast.makeText(this, "✅ Submitted! Admin will verify soon.", Toast.LENGTH_LONG).show()
-                finish()
-            }
-            .addOnFailureListener {
-                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun loadNextAd() {
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) {
-                mInterstitialAd = ad
-            }
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                mInterstitialAd = null
-            }
-        })
+    private fun loadAd() {
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", AdRequest.Builder().build(),
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+                override fun onAdFailedToLoad(p0: LoadAdError) { mInterstitialAd = null }
+            })
     }
 }
