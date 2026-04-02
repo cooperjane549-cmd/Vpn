@@ -46,16 +46,18 @@ class TasksActivity : AppCompatActivity() {
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
+        // Initial Load
         loadNextAd()
         updateAdProgressUI()
 
-        // 1. WATCH AD LOGIC
         btnWatchAd?.setOnClickListener {
             if (mInterstitialAd != null) {
                 mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
-                        mInterstitialAd = null
+                        // CRITICAL: Clear the old ad immediately so a new one can load
+                        mInterstitialAd = null 
                         handleAdReward()
+                        loadNextAd() 
                     }
                     override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                         mInterstitialAd = null
@@ -64,25 +66,21 @@ class TasksActivity : AppCompatActivity() {
                 }
                 mInterstitialAd?.show(this)
             } else {
-                Toast.makeText(this, "Ad loading... wait 5 seconds", Toast.LENGTH_SHORT).show()
-                loadNextAd()
+                Toast.makeText(this, "Ad still downloading... please wait.", Toast.LENGTH_SHORT).show()
+                loadNextAd() // Try again if null
             }
         }
 
-        // 2. PAYPAL TASK
         btnPayPayPalTask?.setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_TASK_URL)))
-            Toast.makeText(this, "Pay $5, then paste proof below", Toast.LENGTH_LONG).show()
         }
 
-        // 3. MPESA TILL COPY
         btnCopyTill?.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
             Toast.makeText(this, "Till 3043489 Copied!", Toast.LENGTH_SHORT).show()
         }
 
-        // 4. SUBMIT TASK PROMO (Saved to Firebase instead of Bot)
         btnSubmitTask?.setOnClickListener {
             val title = etTitle?.text?.toString()?.trim() ?: ""
             val link = etLink?.text?.toString()?.trim() ?: ""
@@ -102,11 +100,8 @@ class TasksActivity : AppCompatActivity() {
 
                 database.child("task_promos").push().setValue(promoData)
                     .addOnSuccessListener {
-                        Toast.makeText(this, "✅ Promo Submitted for Review!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "✅ Promo Submitted!", Toast.LENGTH_LONG).show()
                         finish()
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(this, "Failed to submit. Check internet.", Toast.LENGTH_SHORT).show()
                     }
             }
         }
@@ -134,7 +129,6 @@ class TasksActivity : AppCompatActivity() {
         } else {
             prefs.edit().putInt("ad_count", currentCount).apply()
             updateAdProgressUI()
-            loadNextAd()
             Toast.makeText(this, "Ad $currentCount/6 complete!", Toast.LENGTH_SHORT).show()
         }
     }
@@ -142,11 +136,14 @@ class TasksActivity : AppCompatActivity() {
     private fun updateAdProgressUI() {
         val count = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt("ad_count", 0)
         runOnUiThread {
-            tvAdProgress?.text = if (mInterstitialAd != null) "AD READY: $count/6" else "LOADING AD: $count/6..."
+            tvAdProgress?.text = if (mInterstitialAd != null) "AD READY: $count/6" else "AD LOADING: $count/6..."
         }
     }
 
     private fun loadNextAd() {
+        // Only load if one isn't already ready
+        if (mInterstitialAd != null) return
+
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
             override fun onAdLoaded(ad: InterstitialAd) {
@@ -156,9 +153,10 @@ class TasksActivity : AppCompatActivity() {
             override fun onAdFailedToLoad(error: LoadAdError) {
                 mInterstitialAd = null
                 updateAdProgressUI()
+                // Retry in 5 seconds instead of 10 for faster loading
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     loadNextAd()
-                }, 10000)
+                }, 5000)
             }
         })
     }
