@@ -14,13 +14,16 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 
 class SubscriptionActivity : AppCompatActivity() {
 
     private val PAYPAL_SUB_URL = "https://www.paypal.com/ncp/payment/L4GMUVK3ECXXA"
     private val auth = FirebaseAuth.getInstance()
-    private val database = FirebaseDatabase.getInstance().reference
+    
+    // I have set this to your specific project's database URL
+    private val database: DatabaseReference = FirebaseDatabase.getInstance("https://sweetdatavpn-default-rtdb.firebaseio.com/").reference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,29 +39,29 @@ class SubscriptionActivity : AppCompatActivity() {
         val btnVerify = findViewById<MaterialButton>(R.id.btnVerifyPayment)
         val btnContactAdmin = findViewById<TextView>(R.id.btnContactAdmin)
 
-        // 1. PayPal Payment
+        // PAYPAL
         btnPayPayPal?.setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_SUB_URL)))
-            Toast.makeText(this, "After paying, click VERIFY below", Toast.LENGTH_LONG).show()
         }
 
-        // 2. M-Pesa Till Copy
+        // MPESA TILL COPY
         cardMpesa?.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
-            Toast.makeText(this, "Till 3043489 Copied! Pay 30 KES", Toast.LENGTH_SHORT).show()
+            val clip = ClipData.newPlainText("Till", "3043489")
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Till 3043489 Copied!", Toast.LENGTH_SHORT).show()
         }
 
-        // 3. SUBMIT TO FIREBASE (Replaces Telegram)
+        // VERIFY / SUBMIT TO FIREBASE
         btnVerify?.setOnClickListener {
             val msg = etMpesaMessage?.text?.toString()?.trim() ?: ""
             
             if (msg.isEmpty()) {
-                Toast.makeText(this, "Please paste the M-Pesa message first!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Paste M-Pesa message first!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Create a payment object
+            // Data to be saved
             val paymentData = HashMap<String, Any>()
             paymentData["email"] = userEmail
             paymentData["uid"] = userId
@@ -67,18 +70,20 @@ class SubscriptionActivity : AppCompatActivity() {
             paymentData["timestamp"] = System.currentTimeMillis()
             paymentData["status"] = "pending"
 
-            // Push to Firebase under 'pending_payments'
+            // Attempting to write to 'pending_payments' folder
             database.child("pending_payments").push().setValue(paymentData)
                 .addOnSuccessListener {
-                    Toast.makeText(this, "✅ Submitted! Admin will activate you soon.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "✅ Submitted! Admin will activate soon.", Toast.LENGTH_LONG).show()
                     finish()
                 }
-                .addOnFailureListener {
-                    Toast.makeText(this, "Upload Failed! Use WhatsApp instead.", Toast.LENGTH_LONG).show()
+                .addOnFailureListener { e ->
+                    // This will show "Permission Denied" if Rules aren't set
+                    // Or "Network Error" if the URL is wrong
+                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
         }
 
-        // 4. WhatsApp Support
+        // WHATSAPP
         btnContactAdmin?.setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254789574046")))
         }
