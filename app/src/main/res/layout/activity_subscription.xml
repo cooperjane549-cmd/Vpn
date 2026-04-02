@@ -1,149 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#090909"
-    android:fillViewport="true">
+    android:padding="20dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:orientation="vertical">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="SWEETDATA VIP"
-            android:textColor="#FF0033"
-            android:textSize="24sp"
+            android:text="Get 24 Hours Unlimited Access"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginBottom="20dp"/>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp"
-            android:layout_marginBottom="15dp">
-            
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Global Unlimited (24 Hours)"
-                    android:textColor="#0070BA" 
-                    android:textStyle="bold"
-                    android:textSize="18sp"/>
-                
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="PayPal Payment — $0.25 USD"
-                    android:textColor="#FFFFFF"
-                    android:layout_marginTop="5dp"/>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPayPayPal"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="PAY VIA PAYPAL"
-                    app:backgroundTint="#0070BA"
-                    app:cornerRadius="8dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="OR USE M-PESA (KENYA ONLY)"
-            android:textColor="#66FFFFFF"
-            android:textSize="10sp"
-            android:textAlignment="center"
-            android:layout_marginBottom="15dp"/>
+            android:text="Price: Kes 30 or $0.25"
+            android:gravity="center"
+            android:textColor="#4CAF50"
+            android:textSize="18sp"
+            android:layout_marginBottom="20dp" />
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardMpesa"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPayMpesa"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="#1AFFFFFF"
-            app:cardCornerRadius="12dp"
-            android:layout_marginBottom="15dp"
-            android:clickable="true"
-            android:focusable="true">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="M-Pesa Unlimited (24 Hours)"
-                    android:textColor="#22C55E"
-                    android:textStyle="bold"
-                    android:textSize="18sp"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Till: 3043489 — KSh 30.00"
-                    android:textColor="#FFFFFF"
-                    android:layout_marginTop="5dp"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Tap to copy Till Number"
-                    android:textColor="#9CA3AF"
-                    android:textSize="12sp"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:text="Pay via M-Pesa (Till 3043489)" />
 
-        <TextView
-            android:layout_width="wrap_content"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPayPaypal"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="PASTE CONFIRMATION MESSAGE"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:layout_marginBottom="5dp"/>
+            android:text="Pay via PayPal ($0.25)"
+            android:layout_marginTop="10dp" />
 
         <EditText
             android:id="@+id/etMpesaMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:hint="Paste M-Pesa or PayPal message here"
+            android:layout_marginTop="30dp"
             android:minHeight="100dp"
-            android:background="#1AFFFFFF"
-            android:gravity="top|start"
-            android:hint="Paste M-Pesa or PayPal Proof here..."
-            android:padding="12dp"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#66FFFFFF"
-            android:textSize="14sp" />
+            android:gravity="top"
+            android:background="@android:drawable/editbox_background"/>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnVerifyPayment"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:layout_marginTop="15dp"
-            android:text="VERIFY &amp; ACTIVATE"
-            app:backgroundTint="#FF0033"
-            app:cornerRadius="8dp" />
-
-        <TextView
-            android:id="@+id/btnContactAdmin"
+            android:id="@+id/btnSubmitPayment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Need Help? Chat on WhatsApp"
-            android:textColor="#25D366"
-            android:textAlignment="center"
-            android:layout_marginTop="30dp"
-            android:padding="10dp"/>
+            android:text="Submit Proof to Admin"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#FF9800" />
 
     </LinearLayout>
 </ScrollView>
