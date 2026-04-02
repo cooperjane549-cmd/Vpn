@@ -62,10 +62,7 @@ class MainActivity : AppCompatActivity() {
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // 1. Mandatory Terms & Conditions Check
         checkTermsAndConditions()
-
-        // 2. Battery Optimization Bypass
         requestBatteryExemption()
 
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -76,7 +73,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // NAVIGATION BUTTONS
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -85,10 +81,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // NEW: SHARE BUTTON LOGIC
+        // SHARE BUTTON (Commented out to fix the build error)
+        /*
         findViewById<MaterialButton>(R.id.btnShareApp).setOnClickListener {
             shareAppWithFriends()
         }
+        */
 
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else validateAndConnect()
@@ -96,30 +94,22 @@ class MainActivity : AppCompatActivity() {
 
         if (auth.currentUser == null) signInWithGoogle() else syncTimeFromFirebase()
 
-        // Initialize Ads with Auto-Retry
         MobileAds.initialize(this) {}
         loadInterstitial() 
     }
 
-    // --- SHARE FEATURE ---
     private fun shareAppWithFriends() {
         val shareMessage = """
-            🚀 Hey! Try *SweetData VPN* for fast and unlimited Safaricom/Airtel browsing.
-            
-            ✅ Stable connection
-            ✅ Watch ads to get free time
-            ✅ Cheap premium plans
-            
-            Download it here: https://your-download-link.com/app.apk
+            🚀 Hey! Try *SweetData VPN* for fast Safaricom/Airtel browsing.
+            Download here: https://your-link.com
         """.trimIndent()
 
         val intent = Intent(Intent.ACTION_SEND)
         intent.type = "text/plain"
         intent.putExtra(Intent.EXTRA_TEXT, shareMessage)
-        startActivity(Intent.createChooser(intent, "Share SweetData via"))
+        startActivity(Intent.createChooser(intent, "Share via"))
     }
 
-    // --- VPN & SIM LOGIC (RELAXED FOR FREEDOM) ---
     private fun validateAndConnect() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val selected = prefs.getString("selected_network", "Safaricom")
@@ -129,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             telephonyManager.networkOperatorName.ifEmpty { "Unknown" } 
         } catch(e: Exception) { "Unknown" }
 
-        Toast.makeText(this, "Connecting: $currentCarrier ($selected Mode)", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Connecting: $currentCarrier ($selected)", Toast.LENGTH_SHORT).show()
         checkAccessAndStart()
     }
 
@@ -144,7 +134,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- FIREBASE SYNC ---
     private fun syncTimeFromFirebase() {
         val userId = auth.currentUser?.uid ?: return
         database.child("users").child(userId).child("expiry_time")
@@ -176,7 +165,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- ADS LOGIC ---
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
@@ -194,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                     mInterstitialAd = null
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         loadInterstitial()
-                    }, 15000) // Retry every 15s
+                    }, 15000)
                 }
             })
     }
@@ -218,7 +206,6 @@ class MainActivity : AppCompatActivity() {
         loadInterstitial() 
     }
 
-    // --- ORIGINAL PROTECTION LOGIC ---
     private fun checkTermsAndConditions() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean("terms_accepted", false)) {
@@ -246,7 +233,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- GOOGLE AUTH ---
     private fun signInWithGoogle() {
         val signInIntent = googleSignInClient.signInIntent
         googleLauncher.launch(signInIntent)
