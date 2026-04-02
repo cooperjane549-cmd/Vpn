@@ -7,17 +7,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import okhttp3.*
@@ -28,7 +25,7 @@ class TasksActivity : AppCompatActivity() {
     private val BOT_TOKEN = "8704489723:AAESi-hHMCYK1mVNLIGP69maZX7lOu7eaMg"
     private val ADMIN_CHAT_ID = "6847108451"
     private val INTERSTITIAL_ID = "ca-app-pub-2344867686796379/4612206920"
-    private val PAYPAL_TASK_URL = "https://www.paypal.com/ncp/payment/E9WS362E37NPL" // $5 Link
+    private val PAYPAL_TASK_URL = "https://www.paypal.com/ncp/payment/E9WS362E37NPL"
     private val PREFS_NAME = "SweetDataPrefs"
 
     private var mInterstitialAd: InterstitialAd? = null
@@ -53,48 +50,64 @@ class TasksActivity : AppCompatActivity() {
         val etLink = findViewById<EditText>(R.id.etTaskLink)
         val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
 
-        loadNextAd() // Pre-cache ad on entry
+        // Start loading the first ad immediately
+        loadNextAd()
         updateAdProgressUI()
 
-        // 1. WATCH AD FOR 2 HOURS (6 ADS)
+        // 1. WATCH AD LOGIC
         btnWatchAd?.setOnClickListener {
             if (mInterstitialAd != null) {
+                // Set the callback to handle what happens AFTER the ad finishes
+                mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        mInterstitialAd = null
+                        handleAdReward() // Give reward only after they watch
+                    }
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        mInterstitialAd = null
+                        loadNextAd()
+                    }
+                }
                 mInterstitialAd?.show(this)
-                handleAdReward()
             } else {
-                Toast.makeText(this, "Ad still loading... please wait", Toast.LENGTH_SHORT).show()
-                loadNextAd()
+                Toast.makeText(this, "Ad still loading... Please wait 5 seconds", Toast.LENGTH_SHORT).show()
+                loadNextAd() // Force a reload if it was null
             }
         }
 
-        // 2. CREATE TASK: PAYPAL ($5 / 1200 SPOTS)
+        // 2. PAYPAL LINK
         btnPayPayPalTask?.setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_TASK_URL)))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PAYPAL_TASK_URL))
+            startActivity(intent)
             Toast.makeText(this, "Pay $5, then paste proof below", Toast.LENGTH_LONG).show()
         }
 
-        // 3. CREATE TASK: MPESA (KES 450 / 1200 SPOTS)
+        // 3. MPESA TILL COPY
         btnCopyTill?.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Till", "3043489"))
-            Toast.makeText(this, "Till 3043489 Copied! Pay Kes 450", Toast.LENGTH_SHORT).show()
+            val clip = ClipData.newPlainText("Till", "3043489")
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Till 3043489 Copied!", Toast.LENGTH_SHORT).show()
         }
 
-        // 4. SUBMIT PROMO FOR ADMIN APPROVAL
+        // 4. SUBMIT TASK TO ADMIN
         btnSubmitTask?.setOnClickListener {
             val title = etTitle?.text?.toString()?.trim() ?: ""
             val link = etLink?.text?.toString()?.trim() ?: ""
             val msg = etPaymentMsg?.text?.toString()?.trim() ?: ""
+            val userEmail = auth.currentUser?.email ?: "Unknown"
 
             if (title.isEmpty() || link.isEmpty() || msg.isEmpty()) {
-                Toast.makeText(this, "Fill all fields first!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
             } else {
-                val report = "🚀 *NEW TASK PROMO REQUEST*\n" +
-                        "👤 ID: `$deviceId` \n" +
-                        "📌 Title: $title\n" +
-                        "🔗 Link: $link\n" +
-                        "💰 Proof: $msg\n" +
-                        "📊 Target: 1,200 Spots"
+                // Using HTML mode for the bot to avoid 'Markdown' symbol errors
+                val report = "<b>🚀 NEW TASK PROMO REQUEST</b>\n\n" +
+                        "<b>User:</b> $userEmail\n" +
+                        "<b>ID:</b> <code>$deviceId</code>\n" +
+                        "<b>Title:</b> $title\n" +
+                        "<b>Link:</b> $link\n\n" +
+                        "<b>Proof Message:</b>\n$msg"
+                
                 sendToTelegram(report)
             }
         }
@@ -102,56 +115,86 @@ class TasksActivity : AppCompatActivity() {
 
     private fun handleAdReward() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var count = prefs.getInt("ad_count", 0) + 1
+        val currentCount = prefs.getInt("ad_count", 0) + 1
 
-        if (count >= 6) {
+        if (currentCount >= 6) {
             val rewardMillis = 120 * 60 * 1000L // 2 Hours
             val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
             val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
             val newExpiryTime = baseTime + rewardMillis
 
+            // Save locally
             prefs.edit().putLong("expiry_time", newExpiryTime).putInt("ad_count", 0).apply()
 
-            auth.currentUser?.uid?.let {
-                database.child("users").child(it).child("expiry_time").setValue(newExpiryTime)
+            // Save to Firebase
+            auth.currentUser?.uid?.let { uid ->
+                database.child("users").child(uid).child("expiry_time").setValue(newExpiryTime)
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "✅ 2 Hours Added Successfully!", Toast.LENGTH_LONG).show()
+                        finish() // Go back to MainActivity to see updated time
+                    }
             }
-            Toast.makeText(this, "REWARDED: 2 Hours Added!", Toast.LENGTH_LONG).show()
-            finish()
         } else {
-            prefs.edit().putInt("ad_count", count).apply()
+            prefs.edit().putInt("ad_count", currentCount).apply()
             updateAdProgressUI()
-            loadNextAd() // Load next for the next click
+            loadNextAd() // Load the next ad for the next click
+            Toast.makeText(this, "Ad $currentCount/6 complete!", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun updateAdProgressUI() {
         val count = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt("ad_count", 0)
-        tvAdProgress?.text = "AD PROGRESS: $count/6"
+        runOnUiThread {
+            if (mInterstitialAd != null) {
+                tvAdProgress?.text = "AD READY: $count/6"
+            } else {
+                tvAdProgress?.text = "LOADING AD: $count/6..."
+            }
+        }
     }
 
     private fun loadNextAd() {
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
-            override fun onAdFailedToLoad(error: LoadAdError) { mInterstitialAd = null }
+            override fun onAdLoaded(ad: InterstitialAd) {
+                mInterstitialAd = ad
+                updateAdProgressUI()
+            }
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                mInterstitialAd = null
+                updateAdProgressUI()
+                // Auto-retry after 10 seconds if it fails
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    loadNextAd()
+                }, 10000)
+            }
         })
     }
 
-    private fun sendToTelegram(text: String) {
+    private fun sendToTelegram(htmlText: String) {
+        val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
+        
         val body = FormBody.Builder()
             .add("chat_id", ADMIN_CHAT_ID)
-            .add("text", text)
-            .add("parse_mode", "Markdown")
+            .add("text", htmlText)
+            .add("parse_mode", "HTML")
             .build()
 
-        client.newCall(Request.Builder().url("https://api.telegram.org/bot$BOT_TOKEN/sendMessage").post(body).build()).enqueue(object : Callback {
+        val request = Request.Builder().url(url).post(body).build()
+
+        client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { Toast.makeText(this@TasksActivity, "Failed! Check connection", Toast.LENGTH_SHORT).show() }
+                runOnUiThread { Toast.makeText(this@TasksActivity, "Failed to send to bot!", Toast.LENGTH_SHORT).show() }
             }
             override fun onResponse(call: Call, response: Response) {
-                runOnUiThread { 
-                    Toast.makeText(this@TasksActivity, "Sent! Admin will approve soon.", Toast.LENGTH_LONG).show()
-                    finish() 
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@TasksActivity, "Sent! Admin will approve soon.", Toast.LENGTH_LONG).show()
+                        finish()
+                    } else {
+                        // Shows the error code (e.g., 404 or 400) to help us debug
+                        Toast.makeText(this@TasksActivity, "Server Error: ${response.code}", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 response.close()
             }
