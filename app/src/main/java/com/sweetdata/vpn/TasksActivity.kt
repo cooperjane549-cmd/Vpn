@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 
 class TasksActivity : AppCompatActivity() {
+    
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance("https://sweetdatavpn-default-rtdb.firebaseio.com/").reference
     private var mInterstitialAd: InterstitialAd? = null
@@ -22,40 +23,97 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
+        // Load Initial Ad
         loadNextAd()
 
-        // 1. WATCH ADS FOR 2 HOURS (AUTO)
-        findViewById<MaterialButton>(R.id.btnWatchAd).setOnClickListener {
-            mInterstitialAd?.show(this) ?: loadNextAd()
+        // --- SECTION 1: ADS ---
+        val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
+        btnWatchAd.setOnClickListener {
+            if (mInterstitialAd != null) {
+                mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        mInterstitialAd = null
+                        // Ad reward logic can be added here or in addValueEventListener
+                        Toast.makeText(this@TasksActivity, "Ad watched! Progress saved.", Toast.LENGTH_SHORT).show()
+                        loadNextAd()
+                    }
+                }
+                mInterstitialAd?.show(this)
+            } else {
+                Toast.makeText(this, "Ad is still loading...", Toast.LENGTH_SHORT).show()
+                loadNextAd()
+            }
         }
 
-        // 2. SUBMIT WORK PROOF (FACEBOOK/ETC) FOR 5 MINS
-        findViewById<MaterialButton>(R.id.btnSubmitWorkProof).setOnClickListener {
-            submitRequest(findViewById<EditText>(R.id.etWorkProof).text.toString(), "WORK_5MIN")
+        // --- SECTION 2: WORKER PROOF ---
+        val etWorkProof = findViewById<EditText>(R.id.etWorkProof)
+        val btnSubmitWorkProof = findViewById<MaterialButton>(R.id.btnSubmitWorkProof)
+        
+        btnSubmitWorkProof.setOnClickListener {
+            val proofText = etWorkProof.text.toString().trim()
+            if (proofText.isNotEmpty()) {
+                submitRequest(proofText, "WORK_5MIN")
+            } else {
+                Toast.makeText(this, "Please enter proof of work", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        // 3. ADVERTISER PAYS KES 450 TO LIST TASK
-        findViewById<MaterialButton>(R.id.btnPayAdvertiserMpesa).setOnClickListener {
+        // --- SECTION 3: ADVERTISER PAYMENT ---
+        val btnPayAdvertiserMpesa = findViewById<MaterialButton>(R.id.btnPayAdvertiserMpesa)
+        val btnPayAdvertiserPaypal = findViewById<MaterialButton>(R.id.btnPayAdvertiserPaypal)
+        val etAdvertiserProof = findViewById<EditText>(R.id.etAdvertiserProof)
+        val btnSubmitAdvertiserTask = findViewById<MaterialButton>(R.id.btnSubmitAdvertiserTask)
+
+        btnPayAdvertiserMpesa.setOnClickListener {
             Toast.makeText(this, "Pay Kes 450 to Till: 3043489", Toast.LENGTH_LONG).show()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Till", "3043489"))
         }
-        findViewById<MaterialButton>(R.id.btnPayAdvertiserPaypal).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL")))
+
+        btnPayAdvertiserPaypal.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL"))
+            startActivity(intent)
         }
-        findViewById<MaterialButton>(R.id.btnSubmitAdvertiserTask).setOnClickListener {
-            submitRequest(findViewById<EditText>(R.id.etAdvertiserProof).text.toString(), "AD_LISTING_450")
+
+        btnSubmitAdvertiserTask.setOnClickListener {
+            val advertiserProof = etAdvertiserProof.text.toString().trim()
+            if (advertiserProof.isNotEmpty()) {
+                submitRequest(advertiserProof, "AD_LISTING_450")
+            } else {
+                Toast.makeText(this, "Enter payment proof and task details", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     private fun submitRequest(proof: String, type: String) {
         val user = auth.currentUser ?: return
-        if (proof.isEmpty()) return
-        val data = mapOf("email" to user.email, "uid" to user.uid, "proof" to proof, "status" to "pending", "type" to type)
-        database.child("admin_verifications").push().setValue(data).addOnSuccessListener { finish() }
+        val data = HashMap<String, Any>()
+        data["email"] = user.email ?: "No Email"
+        data["uid"] = user.uid
+        data["proof"] = proof
+        data["status"] = "pending"
+        data["type"] = type
+        data["timestamp"] = System.currentTimeMillis()
+
+        database.child("admin_verifications").push().setValue(data)
+            .addOnSuccessListener {
+                Toast.makeText(this, "✅ Submitted for Admin Approval!", Toast.LENGTH_LONG).show()
+                finish()
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Submission failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun loadNextAd() {
-        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) {
+                mInterstitialAd = ad
+            }
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                mInterstitialAd = null
+            }
         })
     }
 }
