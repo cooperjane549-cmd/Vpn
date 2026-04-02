@@ -13,8 +13,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.firebase.auth.FirebaseAuth
 import okhttp3.*
-import okhttp3.FormBody
 import java.io.IOException
 
 class SubscriptionActivity : AppCompatActivity() {
@@ -31,6 +31,7 @@ class SubscriptionActivity : AppCompatActivity() {
         setContentView(R.layout.activity_subscription)
 
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "DEVICE_UNKNOWN"
+        val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: "No Email"
 
         // UI Components
         val btnPayPayPal = findViewById<MaterialButton>(R.id.btnPayPayPal)
@@ -58,32 +59,36 @@ class SubscriptionActivity : AppCompatActivity() {
         btnVerify?.setOnClickListener {
             val msg = etMpesaMessage?.text?.toString()?.trim() ?: ""
             
+            // We use HTML tags here so they look bold in your Telegram Bot
             if (msg.isEmpty()) {
-                // If they paid via PayPal, they might just want to send their ID
-                val report = "💎 *PAYPAL/SUBSCRIPTION VERIFY*\nID: `$deviceId`"
+                val report = "<b>💎 PAYPAL/SUBSCRIPTION VERIFY</b>\n\n" +
+                             "<b>User:</b> $userEmail\n" +
+                             "<b>ID:</b> <code>$deviceId</code>"
                 sendToTelegram(report)
             } else {
-                // Standard M-Pesa flow
-                val report = "💎 *MPESA SUBSCRIPTION*\nID: `$deviceId`\n\n*Message:* $msg"
+                val report = "<b>💎 MPESA SUBSCRIPTION</b>\n\n" +
+                             "<b>User:</b> $userEmail\n" +
+                             "<b>ID:</b> <code>$deviceId</code>\n\n" +
+                             "<b>Message:</b>\n$msg"
                 sendToTelegram(report)
             }
         }
 
-        // 4. WHATSAPP SUPPORT (Manual Payments/Help)
+        // 4. WHATSAPP SUPPORT
         btnContactAdmin?.setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/254789574046"))
             startActivity(intent)
         }
     }
 
-    private fun sendToTelegram(text: String) {
+    private fun sendToTelegram(htmlText: String) {
+        // The word 'bot' must be right before the token with NO spaces
         val url = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
         
-        // Using FormBody prevents 404/Encoding errors with M-Pesa symbols
         val body = FormBody.Builder()
             .add("chat_id", ADMIN_CHAT_ID)
-            .add("text", text)
-            .add("parse_mode", "HTML")
+            .add("text", htmlText)
+            .add("parse_mode", "HTML") // Use HTML to avoid M-Pesa character errors
             .build()
 
         val request = Request.Builder()
@@ -99,12 +104,14 @@ class SubscriptionActivity : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
+                val code = response.code
                 runOnUiThread {
                     if (response.isSuccessful) {
-                        Toast.makeText(this@SubscriptionActivity, "Request Sent! Admin will activate soon.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@SubscriptionActivity, "✅ Sent! Admin will activate soon.", Toast.LENGTH_LONG).show()
                         finish()
                     } else {
-                        Toast.makeText(this@SubscriptionActivity, "Error: ${response.code}. Try WhatsApp.", Toast.LENGTH_SHORT).show()
+                        // This helps you see if it's 404 (URL) or 400 (Formatting)
+                        Toast.makeText(this@SubscriptionActivity, "Error $code. Try WhatsApp.", Toast.LENGTH_LONG).show()
                     }
                 }
                 response.close()
