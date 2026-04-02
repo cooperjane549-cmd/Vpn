@@ -26,14 +26,13 @@ class TasksActivity : AppCompatActivity() {
         // Load Initial Ad
         loadNextAd()
 
-        // --- SECTION 1: ADS ---
+        // --- SECTION 1: ADS (2 HOURS) ---
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
         btnWatchAd.setOnClickListener {
             if (mInterstitialAd != null) {
                 mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
                         mInterstitialAd = null
-                        // Ad reward logic can be added here or in addValueEventListener
                         Toast.makeText(this@TasksActivity, "Ad watched! Progress saved.", Toast.LENGTH_SHORT).show()
                         loadNextAd()
                     }
@@ -45,7 +44,7 @@ class TasksActivity : AppCompatActivity() {
             }
         }
 
-        // --- SECTION 2: WORKER PROOF ---
+        // --- SECTION 2: WORKER PROOF (5 MINS) ---
         val etWorkProof = findViewById<EditText>(R.id.etWorkProof)
         val btnSubmitWorkProof = findViewById<MaterialButton>(R.id.btnSubmitWorkProof)
         
@@ -58,10 +57,12 @@ class TasksActivity : AppCompatActivity() {
             }
         }
 
-        // --- SECTION 3: ADVERTISER PAYMENT ---
+        // --- SECTION 3: ADVERTISER PAYMENT & TASK CREATION ($5) ---
         val btnPayAdvertiserMpesa = findViewById<MaterialButton>(R.id.btnPayAdvertiserMpesa)
         val btnPayAdvertiserPaypal = findViewById<MaterialButton>(R.id.btnPayAdvertiserPaypal)
-        val etAdvertiserProof = findViewById<EditText>(R.id.etAdvertiserProof)
+        
+        // This ID now matches the "Dark Card" XML exactly
+        val etAdvertiserTaskDetails = findViewById<EditText>(R.id.etAdvertiserTaskDetails)
         val btnSubmitAdvertiserTask = findViewById<MaterialButton>(R.id.btnSubmitAdvertiserTask)
 
         btnPayAdvertiserMpesa.setOnClickListener {
@@ -76,11 +77,11 @@ class TasksActivity : AppCompatActivity() {
         }
 
         btnSubmitAdvertiserTask.setOnClickListener {
-            val advertiserProof = etAdvertiserProof.text.toString().trim()
-            if (advertiserProof.isNotEmpty()) {
-                submitRequest(advertiserProof, "AD_LISTING_450")
+            val taskInfo = etAdvertiserTaskDetails.text.toString().trim()
+            if (taskInfo.isNotEmpty()) {
+                submitRequest(taskInfo, "AD_LISTING_450")
             } else {
-                Toast.makeText(this, "Enter payment proof and task details", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Enter Task Details & Payment Proof", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -97,11 +98,11 @@ class TasksActivity : AppCompatActivity() {
 
         database.child("admin_verifications").push().setValue(data)
             .addOnSuccessListener {
-                Toast.makeText(this, "✅ Submitted for Admin Approval!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "✅ Submitted! Admin will verify soon.", Toast.LENGTH_LONG).show()
                 finish()
             }
             .addOnFailureListener {
-                Toast.makeText(this, "Submission failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
