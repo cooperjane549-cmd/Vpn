@@ -3,19 +3,16 @@ package com.sweetdata.vpn
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -65,10 +62,10 @@ class MainActivity : AppCompatActivity() {
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // 1. Mandatory Terms & Conditions Check
+        // Mandatory Terms & Conditions Check
         checkTermsAndConditions()
 
-        // 2. Battery Optimization Bypass (24/7 Uptime)
+        // Battery Optimization Bypass
         requestBatteryExemption()
 
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -93,8 +90,9 @@ class MainActivity : AppCompatActivity() {
 
         if (auth.currentUser == null) signInWithGoogle() else syncTimeFromFirebase()
 
+        // Initialize Ads
         MobileAds.initialize(this) {}
-        loadInterstitial() // Pre-load ads immediately
+        loadInterstitial() 
     }
 
     private fun checkTermsAndConditions() {
@@ -130,15 +128,15 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val selected = prefs.getString("selected_network", "Safaricom")
         
-        // Smart SIM Detection before connecting
         val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-        val currentCarrier = telephonyManager.networkOperatorName.lowercase()
-
-        if (selected == "Safaricom" && !currentCarrier.contains("safaricom")) {
-            Toast.makeText(this, "Please switch Mobile Data to Safaricom SIM", Toast.LENGTH_LONG).show()
-            return
+        val currentCarrier = try { 
+            telephonyManager.networkOperatorName.ifEmpty { "Unknown Network" } 
+        } catch(e: Exception) { 
+            "Unknown" 
         }
 
+        // We inform the user but we NO LONGER block them. 
+        Toast.makeText(this, "Connecting via $currentCarrier ($selected)", Toast.LENGTH_SHORT).show()
         checkAccessAndStart()
     }
 
@@ -192,8 +190,11 @@ class MainActivity : AppCompatActivity() {
             btnConnect.text = "STOP"
             tvStatus.text = "CONNECTED"
             
-            // Show ad after connecting to monetize the session
-            if (mInterstitialAd != null) mInterstitialAd?.show(this)
+            if (mInterstitialAd != null) {
+                mInterstitialAd?.show(this)
+            } else {
+                loadInterstitial() 
+            }
         }
     }
 
@@ -202,14 +203,33 @@ class MainActivity : AppCompatActivity() {
         isVpnRunning = false
         btnConnect.text = "CONNECT"
         updateBalanceUI()
-        loadInterstitial() // Reload ad for next time
+        loadInterstitial() 
     }
 
     private fun loadInterstitial() {
-        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", AdRequest.Builder().build(),
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
-                override fun onAdFailedToLoad(p0: LoadAdError) { mInterstitialAd = null }
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    mInterstitialAd = ad
+                    mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                        override fun onAdDismissedFullScreenContent() {
+                            mInterstitialAd = null
+                            loadInterstitial() 
+                        }
+                        override fun onAdFailedToShowFullScreenContent(p0: AdError) {
+                            mInterstitialAd = null
+                            loadInterstitial()
+                        }
+                    }
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    mInterstitialAd = null
+                    // Retry after 15 seconds if failed
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        loadInterstitial()
+                    }, 15000)
+                }
             })
     }
 
