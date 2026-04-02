@@ -1,12 +1,7 @@
 package com.sweetdata.vpn
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -21,12 +16,10 @@ import com.google.firebase.database.FirebaseDatabase
 class TasksActivity : AppCompatActivity() {
 
     private val INTERSTITIAL_ID = "ca-app-pub-2344867686796379/4612206920"
-    private val PREFS_NAME = "SweetDataPrefs"
     private var mInterstitialAd: InterstitialAd? = null
     private var tvAdProgress: TextView? = null
-    private val auth = FirebaseAuth.getInstance()
     
-    // Updated with direct URL to ensure connection
+    private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance("https://sweetdatavpn-default-rtdb.firebaseio.com/").reference
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,108 +28,88 @@ class TasksActivity : AppCompatActivity() {
 
         tvAdProgress = findViewById(R.id.tvAdProgress)
         val btnWatchAd = findViewById<MaterialButton>(R.id.btnWatchAd)
-        val btnSubmitTask = findViewById<MaterialButton>(R.id.btnSubmitTaskToAdmin)
         
+        // Input Fields
         val etTitle = findViewById<EditText>(R.id.etTaskTitle)
+        val etDesc = findViewById<EditText>(R.id.etTaskDesc)
         val etLink = findViewById<EditText>(R.id.etTaskLink)
-        val etPaymentMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
+        val etMpesaMsg = findViewById<EditText>(R.id.etTaskPaymentMsg)
+        val btnSubmit = findViewById<MaterialButton>(R.id.btnSubmitTaskToAdmin)
 
         loadNextAd()
-        updateAdProgressUI()
 
+        // --- ADS LOGIC (6 ADS = 2 HOURS) ---
         btnWatchAd?.setOnClickListener {
             if (mInterstitialAd != null) {
                 mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                     override fun onAdDismissedFullScreenContent() {
                         mInterstitialAd = null
-                        handleAdReward()
+                        processAdReward()
                         loadNextAd() 
-                    }
-                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                        mInterstitialAd = null
-                        loadNextAd()
                     }
                 }
                 mInterstitialAd?.show(this)
             } else {
-                // If ad is null, we FORCE a reload immediately when they click
-                Toast.makeText(this, "Refreshing Ad... Try again in 3 seconds", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Ad loading...", Toast.LENGTH_SHORT).show()
                 loadNextAd()
             }
         }
 
-        btnSubmitTask?.setOnClickListener {
-            val title = etTitle?.text?.toString()?.trim() ?: ""
-            val link = etLink?.text?.toString()?.trim() ?: ""
-            val msg = etPaymentMsg?.text?.toString()?.trim() ?: ""
+        // --- SUBMISSION LOGIC (MANUAL APPROVAL) ---
+        btnSubmit?.setOnClickListener {
+            val proof = etMpesaMsg?.text?.toString()?.trim() ?: ""
+            val user = auth.currentUser ?: return@setOnClickListener
 
-            if (title.isEmpty() || link.isEmpty() || msg.isEmpty()) {
-                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
-            } else {
-                val promoData = HashMap<String, Any>()
-                promoData["email"] = auth.currentUser?.email ?: "User"
-                promoData["title"] = title
-                promoData["link"] = link
-                promoData["proof"] = msg
-                promoData["status"] = "pending"
-
-                database.child("task_promos").push().setValue(promoData)
-                    .addOnSuccessListener {
-                        Toast.makeText(this, "✅ Submitted successfully!", Toast.LENGTH_LONG).show()
-                        finish()
-                    }
-                    .addOnFailureListener { e ->
-                        Toast.makeText(this, "Firebase Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+            if (proof.isEmpty()) {
+                Toast.makeText(this, "Please paste your payment proof", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            val data = HashMap<String, Any>()
+            data["email"] = user.email ?: "No Email"
+            data["uid"] = user.uid
+            data["title"] = etTitle?.text.toString()
+            data["description"] = etDesc?.text.toString()
+            data["link"] = etLink?.text.toString()
+            data["proof"] = proof
+            data["status"] = "pending"
+            data["type"] = "TASK_OR_SUB"
+
+            database.child("task_promos").push().setValue(data)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "✅ Sent to Admin for 24H Activation!", Toast.LENGTH_LONG).show()
+                    finish()
+                }
         }
     }
 
-    private fun handleAdReward() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentCount = prefs.getInt("ad_count", 0) + 1
+    private fun processAdReward() {
+        val prefs = getSharedPreferences("SweetDataPrefs", Context.MODE_PRIVATE)
+        val count = prefs.getInt("ad_count", 0) + 1
 
-        if (currentCount >= 6) {
-            val rewardMillis = 120 * 60 * 1000L
-            val currentExpiry = prefs.getLong("expiry_time", System.currentTimeMillis())
-            val baseTime = if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis()
-            val newExpiryTime = baseTime + rewardMillis
-
-            prefs.edit().putLong("expiry_time", newExpiryTime).putInt("ad_count", 0).apply()
-
-            auth.currentUser?.uid?.let { uid ->
-                database.child("users").child(uid).child("expiry_time").setValue(newExpiryTime)
-            }
-            Toast.makeText(this, "✅ 2 Hours Added!", Toast.LENGTH_LONG).show()
-            finish()
+        if (count >= 6) {
+            val twoHoursMs = 120 * 60 * 1000L
+            val now = System.currentTimeMillis()
+            val currentExp = prefs.getLong("expiry_time", now)
+            val newExp = (if (currentExp > now) currentExp else now) + twoHoursMs
+            
+            prefs.edit().putLong("expiry_time", newExp).putInt("ad_count", 0).apply()
+            auth.currentUser?.uid?.let { database.child("users").child(it).child("expiry_time").setValue(newExp) }
+            Toast.makeText(this, "✅ 2 Hours Added!", Toast.LENGTH_SHORT).show()
+            updateAdProgressUI(0)
         } else {
-            prefs.edit().putInt("ad_count", currentCount).apply()
-            updateAdProgressUI()
+            prefs.edit().putInt("ad_count", count).apply()
+            updateAdProgressUI(count)
         }
     }
 
-    private fun updateAdProgressUI() {
-        val count = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt("ad_count", 0)
-        runOnUiThread {
-            tvAdProgress?.text = if (mInterstitialAd != null) "AD READY: $count/6" else "AD LOADING: $count/6..."
-        }
+    private fun updateAdProgressUI(count: Int) {
+        tvAdProgress?.text = "Progress: $count/6 Ads"
     }
 
     private fun loadNextAd() {
-        if (mInterstitialAd != null) return
-        
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, INTERSTITIAL_ID, adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: InterstitialAd) {
-                mInterstitialAd = ad
-                updateAdProgressUI()
-            }
-            override fun onAdFailedToLoad(error: LoadAdError) {
-                mInterstitialAd = null
-                updateAdProgressUI()
-                // Retry every 7 seconds
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ loadNextAd() }, 7000)
-            }
+        InterstitialAd.load(this, INTERSTITIAL_ID, AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
         })
     }
 }
