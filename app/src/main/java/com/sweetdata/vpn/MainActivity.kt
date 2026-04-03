@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
     private val timeUpdater = object : Runnable {
         override fun run() {
             updateBalanceUI()
-            handler.postDelayed(this, 10000) // Update UI every 10 seconds
+            handler.postDelayed(this, 10000) 
         }
     }
 
@@ -71,10 +71,7 @@ class MainActivity : AppCompatActivity() {
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        checkTermsAndConditions()
-        requestBatteryExemption()
-
-        // 1. Network Selection
+        // Network Toggle Logic
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -83,26 +80,65 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Navigation - Task (2hr Free)
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
 
-        // 3. Navigation - Store (24hr Premium)
         findViewById<MaterialButton>(R.id.btnStore).setOnClickListener {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // 4. Connect Button Logic
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
-        if (auth.currentUser == null) signInWithGoogle() else syncTimeFromFirebase()
+        // STARTUP CHECK: Redirect to Google Login if not properly signed in
+        val user = auth.currentUser
+        if (user == null || user.isAnonymous) {
+            signInWithGoogle()
+        } else {
+            runSafetyChecks()
+            syncTimeFromFirebase()
+        }
 
         MobileAds.initialize(this) {}
         loadInterstitial()
         handler.post(timeUpdater)
+    }
+
+    // MANDATORY SAFETY CHAIN: Terms -> Battery -> Dashboard
+    private fun runSafetyChecks() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("terms_accepted", false)) {
+            AlertDialog.Builder(this)
+                .setTitle("Terms of Service")
+                .setMessage("By using SweetData VPN, you agree that we are not responsible for any data loss. Use at your own risk.")
+                .setCancelable(false)
+                .setPositiveButton("Accept") { _, _ -> 
+                    prefs.edit().putBoolean("terms_accepted", true).apply()
+                    checkBatteryExemption() 
+                }
+                .setNegativeButton("Exit") { _, _ -> finish() }
+                .show()
+        } else {
+            checkBatteryExemption()
+        }
+    }
+
+    private fun checkBatteryExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            AlertDialog.Builder(this)
+                .setTitle("Keep SweetData Alive")
+                .setMessage("Please allow SweetData VPN to run without battery restrictions to prevent disconnection.")
+                .setCancelable(false)
+                .setPositiveButton("Go to Settings") { _, _ ->
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                }
+                .show()
+        }
     }
 
     private fun validateAndConnect() {
@@ -114,7 +150,7 @@ class MainActivity : AppCompatActivity() {
             if (intent != null) startActivityForResult(intent, 102)
             else onActivityResult(102, RESULT_OK, null)
         } else {
-            Toast.makeText(this, "ACCESS EXPIRED! Use TASKS or STORE to renew.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "ACCESS EXPIRED! Renew in STORE or TASKS", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -135,8 +171,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateBalanceUI() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
-        val currentTime = System.currentTimeMillis()
-        val diff = expiry - currentTime
+        val diff = expiry - System.currentTimeMillis()
 
         if (diff > 0) {
             val mins = diff / (60 * 1000)
@@ -147,11 +182,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.text = "ACCESS EXPIRED"
             tvBalance.text = "0 MIN"
             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light))
-            
-            if (isVpnRunning) {
-                stopVpn()
-                Toast.makeText(this, "Time is up! Please renew in Store.", Toast.LENGTH_LONG).show()
-            }
+            if (isVpnRunning) stopVpn()
         }
     }
 
@@ -172,7 +203,6 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102 && resultCode == RESULT_OK) {
-            // Placeholder: Replace with your actual VpnService class name
             startService(Intent(this, MyVpnService::class.java))
             isVpnRunning = true
             btnConnect.text = "STOP"
@@ -185,34 +215,6 @@ class MainActivity : AppCompatActivity() {
         isVpnRunning = false
         btnConnect.text = "CONNECT"
         updateBalanceUI()
-        loadInterstitial() 
-    }
-
-    private fun checkTermsAndConditions() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("terms_accepted", false)) {
-            AlertDialog.Builder(this)
-                .setTitle("Terms of Service")
-                .setMessage("By using SweetData VPN, you agree to our terms and conditions.")
-                .setCancelable(false)
-                .setPositiveButton("Accept") { _, _ -> prefs.edit().putBoolean("terms_accepted", true).apply() }
-                .setNegativeButton("Exit") { _, _ -> finish() }
-                .show()
-        }
-    }
-
-    private fun requestBatteryExemption() {
-        val pm = getSystemService(POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            AlertDialog.Builder(this)
-                .setTitle("Optimized Connection")
-                .setMessage("Allow SweetData VPN to run in the background to prevent disconnection.")
-                .setPositiveButton("Settings") { _, _ ->
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                }.show()
-        }
     }
 
     private fun signInWithGoogle() {
@@ -233,7 +235,10 @@ class MainActivity : AppCompatActivity() {
     private fun firebaseAuthWithGoogle(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) syncTimeFromFirebase()
+            if (task.isSuccessful) {
+                runSafetyChecks()
+                syncTimeFromFirebase()
+            }
         }
     }
 
