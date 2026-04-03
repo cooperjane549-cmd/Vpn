@@ -12,65 +12,57 @@ import com.google.firebase.database.FirebaseDatabase
 
 class SubscriptionActivity : AppCompatActivity() {
 
-    private val auth = FirebaseAuth.getInstance()
-    private val database = FirebaseDatabase.getInstance("https://sweetdatavpn-default-rtdb.firebaseio.com/").reference
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_subscription)
 
-        val etMpesaMsg = findViewById<EditText>(R.id.etMpesaMessage)
-        val btnPayMpesa = findViewById<MaterialButton>(R.id.btnPayMpesa)
-        val btnPayPaypal = findViewById<MaterialButton>(R.id.btnPayPaypal)
+        val btnMpesa = findViewById<MaterialButton>(R.id.btnMpesaInstructions)
+        val btnPaypal = findViewById<MaterialButton>(R.id.btnPaypalLink)
         val btnSubmit = findViewById<MaterialButton>(R.id.btnSubmitPayment)
+        val etMessage = findViewById<EditText>(R.id.etMpesaMessage)
 
-        // M-PESA Click: Show Till & Copy to Clipboard
-        btnPayMpesa.setOnClickListener {
-            val till = "3043489"
-            Toast.makeText(this, "Pay Kes 30 to Buy Goods Till: $till", Toast.LENGTH_LONG).show()
-            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Till", till))
+        btnMpesa.setOnClickListener {
+            Toast.makeText(this, "Pay Kes 30 to Buy Goods Till: 3043489", Toast.LENGTH_LONG).show()
         }
 
-        // PayPal Click: Open Link
-        btnPayPaypal.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/L4GMUVK3ECXXA"))
+        btnPaypal.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL"))
             startActivity(intent)
         }
 
-        // SUBMIT LOGIC
         btnSubmit.setOnClickListener {
-            val proofText = etMpesaMsg.text.toString().trim()
-            val user = auth.currentUser
+            // Check auth status exactly when clicking
+            val user = FirebaseAuth.getInstance().currentUser
+            val proofText = etMessage.text.toString().trim()
 
             if (user == null) {
-                Toast.makeText(this, "Please log in first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                Toast.makeText(this, "Error: Please sign in to SweetData VPN first", Toast.LENGTH_LONG).show()
+            } else if (proofText.isEmpty()) {
+                Toast.makeText(this, "Please paste your payment confirmation message", Toast.LENGTH_SHORT).show()
+            } else {
+                submitToAdmin(user.uid, user.email ?: "No Email", proofText)
             }
-
-            if (proofText.isEmpty()) {
-                Toast.makeText(this, "Please paste your payment message!", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val data = HashMap<String, Any>()
-            data["email"] = user.email ?: "No Email"
-            data["uid"] = user.uid
-            data["proof"] = proofText
-            data["status"] = "pending"
-            data["type"] = "SUB_24H"
-            data["timestamp"] = System.currentTimeMillis()
-
-            // Push to Firebase
-            database.child("admin_verifications").push().setValue(data)
-                .addOnSuccessListener {
-                    Toast.makeText(this, "✅ Sent! Admin will verify shortly.", Toast.LENGTH_LONG).show()
-                    etMpesaMsg.setText("") // Clear the box after sending
-                    finish() // Close activity
-                }
-                .addOnFailureListener {
-                    Toast.makeText(this, "Failed to send: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
         }
+    }
+
+    private fun submitToAdmin(uid: String, email: String, proof: String) {
+        val database = FirebaseDatabase.getInstance().reference
+        val verificationData = mapOf(
+            "uid" to uid,
+            "email" to email,
+            "proofText" to proof,
+            "status" to "pending",
+            "type" to "PREMIUM_24HR_REQUEST",
+            "timestamp" to System.currentTimeMillis()
+        )
+
+        database.child("admin_verifications").push().setValue(verificationData)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Payment submitted! Admin will activate your 24hrs soon.", Toast.LENGTH_LONG).show()
+                finish() // Returns to MainActivity
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Submission failed. Check your internet connection.", Toast.LENGTH_SHORT).show()
+            }
     }
 }
