@@ -1,109 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:orientation="vertical"
+    android:padding="30dp"
+    android:gravity="center_horizontal"
+    android:background="?android:attr/windowBackground">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:text="FREE DAILY ACCESS"
+        android:textAppearance="?attr/textAppearanceHeadline6"
+        android:textColor="?attr/colorPrimary"
+        android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="POST A QUICK JOB ($5 / KES 450)"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="#E91E63" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Watch 6 video ads to unlock 2 hours of unlimited browsing."
+        android:textAlignment="center"
+        android:layout_marginTop="12dp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="14sp" />
 
-        <EditText
-            android:id="@+id/etAdTitle"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:hint="Job Title (e.g. Follow my TikTok)"
-            android:background="@android:drawable/editbox_background"
-            android:layout_marginTop="8dp" />
+    <TextView
+        android:id="@+id/tvAdProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Progress: 0 / 6"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:layout_marginTop="50dp"
+        android:textColor="?attr/colorPrimary" />
 
-        <EditText
-            android:id="@+id/etAdLink"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:hint="Link to Task"
-            android:background="@android:drawable/editbox_background"
-            android:layout_marginTop="8dp" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnWatchAd"
+        android:layout_width="match_parent"
+        android:layout_height="65dp"
+        android:text="WATCH VIDEO AD"
+        android:textSize="16sp"
+        android:backgroundTint="?attr/colorPrimary"
+        android:textColor="?attr/colorOnPrimary"
+        android:layout_marginTop="40dp" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp">
-            <Button
-                android:id="@+id/btnPayMpesa"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="PAY M-PESA"
-                android:backgroundTint="#00BE32"
-                android:layout_marginRight="4dp"/>
-            <Button
-                android:id="@+id/btnPayPaypal"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="PAY PAYPAL"
-                android:backgroundTint="#0070BA" />
-        </LinearLayout>
+    <TextView
+        android:id="@+id/tvLimitMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="You can claim this once every 24 hours."
+        android:textSize="12sp"
+        android:layout_marginTop="16dp"
+        android:alpha="0.7"
+        android:textColor="?android:attr/textColorSecondary" />
 
-        <EditText
-            android:id="@+id/etPaymentProof"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:hint="Paste Payment Message &amp; Instructions..."
-            android:gravity="top"
-            android:padding="10dp"
-            android:layout_marginTop="10dp"
-            android:background="@android:drawable/editbox_background" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
-        <Button
-            android:id="@+id/btnSubmitAdRequest"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="POST JOB NOW"
-            android:layout_marginTop="10dp"
-            android:backgroundTint="#333333" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Need more time? Visit the STORE for 24h access."
+        android:textSize="13sp"
+        android:textColor="?attr/colorPrimary"
+        android:layout_marginBottom="10dp" />
 
-        <View android:layout_width="match_parent" android:layout_height="2dp" android:background="#EEEEEE" android:layout_marginVertical="25dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="AVAILABLE JOBS (EARN TIME)"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="#2196F3" />
-
-        <Button
-            android:id="@+id/btnWatchAd"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="WATCH VIDEO AD (INSTANT 2H)"
-            android:backgroundTint="#4CAF50"
-            android:layout_marginTop="10dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Micro Tasks from Advertisers:"
-            android:layout_marginTop="15dp"
-            android:textColor="#666666" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvActiveTasks"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp" />
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>
