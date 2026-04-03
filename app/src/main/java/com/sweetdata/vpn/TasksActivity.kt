@@ -30,35 +30,31 @@ class TasksActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        // 1. Initialize Ads
         MobileAds.initialize(this)
         loadAd()
 
-        // 2. Setup Job List (RecyclerView)
         val rvActiveTasks = findViewById<RecyclerView>(R.id.rvActiveTasks)
         rvActiveTasks.layoutManager = LinearLayoutManager(this)
         setupJobList(rvActiveTasks)
 
-        // 3. Worker: Watch Ad Button
         findViewById<Button>(R.id.btnWatchAd).setOnClickListener {
             if (mInterstitialAd != null) {
                 mInterstitialAd?.show(this)
             } else {
-                Toast.makeText(this, "Ad is loading, please wait...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Ad is loading...", Toast.LENGTH_SHORT).show()
                 loadAd()
             }
         }
 
-        // 4. Advertiser: Payment Buttons
         findViewById<Button>(R.id.btnPayMpesa).setOnClickListener {
             Toast.makeText(this, "Pay Kes 450 to Till: 3043489", Toast.LENGTH_LONG).show()
         }
+
         findViewById<Button>(R.id.btnPayPaypal).setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/ncp/payment/E9WS362E37NPL"))
             startActivity(intent)
         }
 
-        // 5. Advertiser: Post Job Button
         findViewById<Button>(R.id.btnSubmitAdRequest).setOnClickListener {
             val title = findViewById<EditText>(R.id.etAdTitle).text.toString().trim()
             val link = findViewById<EditText>(R.id.etAdLink).text.toString().trim()
@@ -72,11 +68,9 @@ class TasksActivity : AppCompatActivity() {
         }
     }
 
-    // --- FIREBASE ADAPTER LOGIC ---
     private fun setupJobList(recyclerView: RecyclerView) {
         val jobList = mutableListOf<Job>()
         
-        // Listen for approved jobs from your database
         database.child("approved_jobs").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 jobList.clear()
@@ -85,7 +79,6 @@ class TasksActivity : AppCompatActivity() {
                     if (job != null) jobList.add(job)
                 }
                 
-                // Simple Adapter inline
                 recyclerView.adapter = object : RecyclerView.Adapter<JobViewHolder>() {
                     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): JobViewHolder {
                         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_job, parent, false)
@@ -108,7 +101,6 @@ class TasksActivity : AppCompatActivity() {
         })
     }
 
-    // --- THE WORKER POPUP (Submit Proof) ---
     private fun showJobPopup(title: String, link: String, jobId: String) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_submit_proof, null)
         val tvTitle = dialogView.findViewById<TextView>(R.id.tvDialogJobTitle)
@@ -127,8 +119,6 @@ class TasksActivity : AppCompatActivity() {
                 val proofText = etProof.text.toString().trim()
                 if (proofText.isNotEmpty()) {
                     sendWorkToAdmin(proofText, title, jobId)
-                } else {
-                    Toast.makeText(this, "Proof is required!", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -185,3 +175,12 @@ class TasksActivity : AppCompatActivity() {
         val btnDo: Button = v.findViewById(R.id.btnDoJob)
     }
 }
+
+// --- ADD THIS AT THE VERY BOTTOM OF THE FILE ---
+data class Job(
+    val id: String = "",
+    val title: String = "",
+    val link: String = "",
+    val instructions: String = "",
+    val status: String = "active"
+)
