@@ -31,15 +31,24 @@ class SubscriptionActivity : AppCompatActivity() {
         }
 
         btnSubmit.setOnClickListener {
-            // Check auth status exactly when clicking
-            val user = FirebaseAuth.getInstance().currentUser
+            // Fresh check of the Firebase Auth session
+            val auth = FirebaseAuth.getInstance()
+            val user = auth.currentUser
             val proofText = etMessage.text.toString().trim()
 
-            if (user == null) {
-                Toast.makeText(this, "Error: Please sign in to SweetData VPN first", Toast.LENGTH_LONG).show()
+            // Block submission if user is missing OR is a 'Guest/Anonymous' user
+            if (user == null || user.isAnonymous) {
+                Toast.makeText(this, "Login error: Please sign in with Google to SweetData VPN", Toast.LENGTH_LONG).show()
+                
+                // Optional: Force return to Main if they aren't logged in
+                val intent = Intent(this, MainActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                startActivity(intent)
+                finish()
             } else if (proofText.isEmpty()) {
                 Toast.makeText(this, "Please paste your payment confirmation message", Toast.LENGTH_SHORT).show()
             } else {
+                // If everything is perfect, submit to Firebase
                 submitToAdmin(user.uid, user.email ?: "No Email", proofText)
             }
         }
@@ -47,6 +56,8 @@ class SubscriptionActivity : AppCompatActivity() {
 
     private fun submitToAdmin(uid: String, email: String, proof: String) {
         val database = FirebaseDatabase.getInstance().reference
+        
+        // Data packet for your review in the Firebase Console
         val verificationData = mapOf(
             "uid" to uid,
             "email" to email,
@@ -56,13 +67,14 @@ class SubscriptionActivity : AppCompatActivity() {
             "timestamp" to System.currentTimeMillis()
         )
 
+        // Push to 'admin_verifications' node
         database.child("admin_verifications").push().setValue(verificationData)
             .addOnSuccessListener {
-                Toast.makeText(this, "Payment submitted! Admin will activate your 24hrs soon.", Toast.LENGTH_LONG).show()
-                finish() // Returns to MainActivity
+                Toast.makeText(this, "Proof submitted! Admin is verifying your payment.", Toast.LENGTH_LONG).show()
+                finish() // Takes user back to the dashboard
             }
             .addOnFailureListener {
-                Toast.makeText(this, "Submission failed. Check your internet connection.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Submission failed. Please check your data connection.", Toast.LENGTH_SHORT).show()
             }
     }
 }
