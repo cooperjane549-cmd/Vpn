@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Show file structure (optional, for debugging)
+      # 2. Show repo structure
       - name: Show repo structure
         run: ls -R
 
@@ -34,13 +34,37 @@ jobs:
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
 
-      # 6. Build APK
+      # 6. Decode Keystore from Secrets
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release-key.jks
+
+      # 7. IMPORTANT: Get SHA-1 and SHA-256 signatures for Firebase
+      - name: Get Signature Report
+        run: ./gradlew signingReport
+
+      # 8. Build Debug APK
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug
 
-      # 7. Upload APK artifact
-      - name: Upload APK
+      # 9. Build Signed Release APK
+      - name: Build Release APK
+        run: ./gradlew :app:assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      # 10. Upload Debug APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: SweetData-VPN-Debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # 11. Upload Release APK
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SweetData-VPN-Release
+          path: app/build/outputs/apk/release/app-release.apk
+          
