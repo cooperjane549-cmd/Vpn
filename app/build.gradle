@@ -19,8 +19,21 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // --- ADDED THIS SECTION TO LINK YOUR KEYSTORE ---
+    signingConfigs {
+        release {
+            // These variables match the 'env' names in your github-build.yml
+            storeFile file("release-key.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS")
+            keyPassword System.getenv("KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            // --- LINKED THE RELEASE CONFIG HERE ---
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
