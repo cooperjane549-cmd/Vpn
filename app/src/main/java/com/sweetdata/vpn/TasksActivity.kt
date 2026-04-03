@@ -1,5 +1,6 @@
 package com.sweetdata.vpn
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -18,12 +19,12 @@ class TasksActivity : AppCompatActivity() {
 
     private lateinit var tvProgress: TextView
     private lateinit var btnWatch: Button
-    private lateinit var tvLimitMsg: TextView
     
     private var adsWatched = 0
     private var mInterstitialAd: InterstitialAd? = null
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance().reference
+    private val PREFS_NAME = "SweetDataPrefs"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,9 +32,10 @@ class TasksActivity : AppCompatActivity() {
 
         tvProgress = findViewById(R.id.tvAdProgress)
         btnWatch = findViewById(R.id.btnWatchAd)
-        
-        // Add a TextView in your XML for the limit message if you haven't yet
-        // tvLimitMsg = findViewById(R.id.tvLimitMessage) 
+
+        // LOAD SAVED PROGRESS
+        adsWatched = getSavedAdCount()
+        updateUI()
 
         MobileAds.initialize(this)
         loadInterstitial()
@@ -43,10 +45,24 @@ class TasksActivity : AppCompatActivity() {
             if (mInterstitialAd != null) {
                 showAd()
             } else {
-                Toast.makeText(this, "Ad loading, please try again...", Toast.LENGTH_SHORT).show()
+                // If ad isn't ready, disable button and try loading again
+                btnWatch.isEnabled = false
+                btnWatch.text = "LOADING AD..."
+                Toast.makeText(this, "Fetching ad... please wait.", Toast.LENGTH_SHORT).show()
                 loadInterstitial()
             }
         }
+    }
+
+    // --- SHARED PREFS LOGIC (The Memory) ---
+    private fun saveAdCount(count: Int) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("temp_ad_count", count).apply()
+    }
+
+    private fun getSavedAdCount(): Int {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("temp_ad_count", 0)
     }
 
     private fun checkDailyLimit() {
@@ -58,10 +74,9 @@ class TasksActivity : AppCompatActivity() {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val lastDate = snapshot.getValue(String::class.java)
                     if (lastDate == today) {
-                        // Limit reached
                         btnWatch.isEnabled = false
                         btnWatch.text = "DAILY LIMIT REACHED"
-                        Toast.makeText(this@TasksActivity, "You already used your free 2hrs today!", Toast.LENGTH_LONG).show()
+                        saveAdCount(0) // Clean up any partial progress if they are already locked out
                     }
                 }
                 override fun onCancelled(error: DatabaseError) {}
@@ -74,9 +89,18 @@ class TasksActivity : AppCompatActivity() {
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     mInterstitialAd = ad
+                    // Re-enable button if it was stuck in "Loading"
+                    if (btnWatch.text == "LOADING AD...") {
+                        btnWatch.isEnabled = true
+                        btnWatch.text = "WATCH VIDEO AD"
+                    }
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     mInterstitialAd = null
+                    // If it fails, wait 5 seconds and try again automatically
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        loadInterstitial()
+                    }, 5000)
                 }
             })
     }
@@ -84,13 +108,21 @@ class TasksActivity : AppCompatActivity() {
     private fun showAd() {
         mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
+                mInterstitialAd = null
                 adsWatched++
+                saveAdCount(adsWatched) // SAVE PROGRESS
                 updateUI()
+                
                 if (adsWatched >= 6) {
                     grantTwoHourReward()
                 } else {
-                    loadInterstitial() // Load next ad
+                    loadInterstitial() // Pre-load next ad
                 }
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                mInterstitialAd = null
+                loadInterstitial()
             }
         }
         mInterstitialAd?.show(this)
@@ -114,8 +146,12 @@ class TasksActivity : AppCompatActivity() {
 
         database.child("users").child(userId).updateChildren(updates)
             .addOnSuccessListener {
+                saveAdCount(0) // RESET PROGRESS TO 0 AFTER REWARD
                 Toast.makeText(this, "2 Hours Free Access Activated!", Toast.LENGTH_LONG).show()
-                finish() // Go back to MainActivity
+                finish() 
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Error: Check internet and try again.", Toast.LENGTH_SHORT).show()
             }
     }
 }
