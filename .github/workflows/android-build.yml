@@ -9,6 +9,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # MOVED SECRETS HERE: Now the 'signingReport' can see the Alias and Passwords
+    env:
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       # 1. Checkout the repository
@@ -38,7 +44,8 @@ jobs:
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release-key.jks
 
-      # 7. IMPORTANT: Get SHA-1 and SHA-256 signatures for Firebase
+      # 7. Get SHA-1 and SHA-256 signatures for Firebase
+      # This will now show the real keys instead of "null"
       - name: Get Signature Report
         run: ./gradlew signingReport
 
@@ -49,10 +56,6 @@ jobs:
       # 9. Build Signed Release APK
       - name: Build Release APK
         run: ./gradlew :app:assembleRelease
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       # 10. Upload Debug APK
       - name: Upload Debug APK
