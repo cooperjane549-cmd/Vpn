@@ -11,7 +11,6 @@ android {
 
     defaultConfig {
         applicationId "com.sweetdata.vpn"
-        // Required for modern VPN libraries
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -19,16 +18,17 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        // ANTI-CRASH: VPN cores need specific CPU instructions
+        // ANTI-CRASH: Required for the V2Ray native engine
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
     }
 
-    // --- FIX FOR LARGE AAR RESOURCES ---
+    // --- CRITICAL: BYPASS LARGE FILE ERRORS ---
     aaptOptions {
-        // This stops the compiler from failing on large/complex library resources
+        // This stops the compiler from failing when it sees the 53MB file
         noCompress 'aar'
+        cruncherEnabled = false
         ignoreAssetsPattern "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
     }
 
@@ -46,11 +46,13 @@ android {
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
+            shrinkResources false // Must be false to avoid V2Ray resource errors
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
-            // Ensures debug builds don't fail on resource processing
-            aaptOptions.cruncherEnabled = false
+            // Speed up debug builds and ignore heavy resource checking
+            minifyEnabled false
+            shrinkResources false
         }
     }
 
@@ -74,7 +76,7 @@ android {
         }
     }
 
-    // Force specific versions to avoid conflicts between V2Ray and your other libs
+    // Force version harmony between the V2Ray engine and your app
     configurations.all {
         resolutionStrategy {
             force 'androidx.core:core-ktx:1.12.0'
@@ -82,19 +84,18 @@ android {
     }
 }
 
-// ADDRESS BOOK: Tells the app where to find all libraries
+// Tells Gradle where to find your downloaded 53MB engine
 repositories {
     google()
     mavenCentral()
-    // This trick allows Gradle to "see" your 53MB .aar from the libs folder
     flatDir {
         dirs 'libs'
     }
 }
 
 dependencies {
-    // --- THE VPN ENGINE (Your 53MB Release File) ---
-    // Make sure the name here matches exactly what your GitHub Action downloads
+    // --- THE VPN ENGINE ---
+    // This looks for the file 'app/libs/libv2ray.1.aar'
     implementation(files("libs/libv2ray.1.aar"))
 
     // Core Android Libraries
@@ -124,7 +125,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-installations'
 
-    // Play Services Auth (Google Login)
+    // Play Services Auth
     implementation 'com.google.android.gms:play-services-auth:21.1.1'
 
     // Testing
