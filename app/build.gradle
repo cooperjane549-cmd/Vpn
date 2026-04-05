@@ -11,18 +11,23 @@ android {
 
     defaultConfig {
         applicationId "com.sweetdata.vpn"
+        // Required for modern VPN libraries
         minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // ANTI-CRASH: VPN cores need specific CPU instructions
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
     }
 
-    // --- ADDED THIS SECTION TO LINK YOUR KEYSTORE ---
+    // --- LINKED TO YOUR GITHUB ACTIONS KEYSTORE ---
     signingConfigs {
         release {
-            // These variables match the 'env' names in your github-build.yml
             storeFile file("release-key.jks")
             storePassword System.getenv("KEYSTORE_PASSWORD")
             keyAlias System.getenv("KEY_ALIAS")
@@ -32,7 +37,6 @@ android {
 
     buildTypes {
         release {
-            // --- LINKED THE RELEASE CONFIG HERE ---
             signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -47,9 +51,34 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
+
+    // PREVENT BUILD ERRORS: V2Ray libs often have duplicate license files
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/DEPENDENCIES'
+            excludes += 'META-INF/LICENSE*'
+            excludes += 'META-INF/NOTICE*'
+        }
+    }
+}
+
+// ADDRESS BOOK: Tells the app where to find all libraries
+repositories {
+    google()
+    mavenCentral()
+    // This trick allows Gradle to "see" your 53MB .aar from GitHub Releases
+    flatDir {
+        dirs 'libs'
+    }
 }
 
 dependencies {
+    // --- THE VPN ENGINE (Your 53MB Release File) ---
+    // Note: If the build fails to find this remotely, 
+    // manually ensure the name matches exactly.
+    implementation(files("libs/libv2ray.1.aar"))
+
     // Core Android Libraries
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -57,11 +86,10 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.core:core-splashscreen:1.0.1'
 
-    // Networking (VPN Core)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okio:okio:3.6.0")
+    // Networking & JSON
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    implementation "com.squareup.okio:okio:3.6.0"
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation("https://github.com/cooperjane549-cmd/Vpn/releases/download/v1.0/libv2ray.1.aar")
 
     // Ads & Rewards
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
@@ -69,7 +97,7 @@ dependencies {
     // Local Storage
     implementation 'androidx.preference:preference-ktx:1.2.1'
 
-    // Kotlin
+    // Kotlin Standard Library
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
 
     // Firebase (Using BoM for version harmony)
@@ -78,9 +106,11 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-installations'
 
+    // Play Services Auth (Google Login)
+    implementation 'com.google.android.gms:play-services-auth:21.1.1'
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'com.google.android.gms:play-services-auth:21.1.1'
 }
