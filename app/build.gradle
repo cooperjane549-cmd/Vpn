@@ -21,7 +21,7 @@ android {
         }
     }
 
-    // --- THE FORCE BYPASS ---
+    // --- STOP THE CRASH ---
     aaptOptions {
         noCompress 'aar'
         cruncherEnabled = false
@@ -59,8 +59,6 @@ android {
     packagingOptions {
         resources {
             excludes += 'META-INF/*'
-            // This prevents duplicate file errors with the V2Ray core
-            pickFirst 'lib/*/libv2ray.so'
         }
     }
 }
@@ -72,12 +70,10 @@ repositories {
 }
 
 dependencies {
-    // We add 'transitive = false' to stop it from digging inside the AAR
-    implementation(files("libs/libv2ray.1.aar")) {
-        transitive = false
-    }
+    // FIXED: Removed the 'transitive' part that caused the last error
+    implementation(files("libs/libv2ray.1.aar"))
 
-    // --- ALL YOUR NECESSARY LIBRARIES ---
+    // ALL YOUR APP FEATURES
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
