@@ -61,7 +61,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okio:okio:3.6.0")
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation(files("libs/libv2ray.aar"))
+    implementation("https://github.com/cooperjane549-cmd/Vpn/releases/download/v1.0/libv2ray.1.aar")
+
     // Ads & Rewards
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
     
