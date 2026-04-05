@@ -1,7 +1,6 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    // This allows the app to "read" your google-services.json
     id 'com.google.gms.google-services' 
 }
 
@@ -15,20 +14,17 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
-        // REQUIRED for V2Ray: Tells the app which phone processors to support
+        
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
     }
 
-    // THE DEFLECTOR: Stops the build from choking on the 53MB engine
+    // --- THE FORCE BYPASS ---
     aaptOptions {
         noCompress 'aar'
         cruncherEnabled = false
-        ignoreAssetsPattern "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
     }
 
     signingConfigs {
@@ -44,7 +40,7 @@ android {
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
-            shrinkResources false // MUST stay false for the V2Ray lib
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
@@ -58,25 +54,13 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = '17'
-    }
+    kotlinOptions { jvmTarget = '17' }
 
     packagingOptions {
         resources {
-            // Cleans up duplicate files that cause "Entry Name Collision" errors
-            excludes += '/META-INF/{AL2.0,LGPL2.1}'
-            excludes += 'META-INF/DEPENDENCIES'
-            excludes += 'META-INF/LICENSE*'
-            excludes += 'META-INF/NOTICE*'
-            excludes += 'META-INF/*.kotlin_module'
-            excludes += 'META-INF/ASL2.0'
-        }
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force 'androidx.core:core-ktx:1.12.0'
+            excludes += 'META-INF/*'
+            // This prevents duplicate file errors with the V2Ray core
+            pickFirst 'lib/*/libv2ray.so'
         }
     }
 }
@@ -84,41 +68,34 @@ android {
 repositories {
     google()
     mavenCentral()
-    flatDir {
-        dirs 'libs'
-    }
+    flatDir { dirs 'libs' }
 }
 
 dependencies {
-    // THE ENGINE: Points to the file your GitHub Action downloads
-    implementation(files("libs/libv2ray.1.aar"))
+    // We add 'transitive = false' to stop it from digging inside the AAR
+    implementation(files("libs/libv2ray.1.aar")) {
+        transitive = false
+    }
 
-    // --- UI & CORE ---
+    // --- ALL YOUR NECESSARY LIBRARIES ---
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation 'androidx.preference:preference-ktx:1.2.1'
-
-    // --- NETWORKING ---
+    
+    // Networking
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation "com.squareup.okio:okio:3.6.0"
     implementation 'com.google.code.gson:gson:2.10.1'
-
-    // --- GOOGLE & ADS ---
-    implementation 'com.google.android.gms:play-services-ads:23.0.0'
-    implementation 'com.google.android.gms:play-services-auth:21.1.1'
-
-    // --- FIREBASE ---
+    
+    // Firebase & Ads
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-installations'
+    implementation 'com.google.android.gms:play-services-ads:23.0.0'
+    implementation 'com.google.android.gms:play-services-auth:21.1.1'
 
-    // --- KOTLIN & TESTING ---
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
