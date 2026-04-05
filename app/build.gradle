@@ -25,6 +25,13 @@ android {
         }
     }
 
+    // --- FIX FOR LARGE AAR RESOURCES ---
+    aaptOptions {
+        // This stops the compiler from failing on large/complex library resources
+        noCompress 'aar'
+        ignoreAssetsPattern "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
+
     // --- LINKED TO YOUR GITHUB ACTIONS KEYSTORE ---
     signingConfigs {
         release {
@@ -40,6 +47,10 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Ensures debug builds don't fail on resource processing
+            aaptOptions.cruncherEnabled = false
         }
     }
 
@@ -59,6 +70,14 @@ android {
             excludes += 'META-INF/DEPENDENCIES'
             excludes += 'META-INF/LICENSE*'
             excludes += 'META-INF/NOTICE*'
+            excludes += 'META-INF/*.kotlin_module'
+        }
+    }
+
+    // Force specific versions to avoid conflicts between V2Ray and your other libs
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core-ktx:1.12.0'
         }
     }
 }
@@ -67,7 +86,7 @@ android {
 repositories {
     google()
     mavenCentral()
-    // This trick allows Gradle to "see" your 53MB .aar from GitHub Releases
+    // This trick allows Gradle to "see" your 53MB .aar from the libs folder
     flatDir {
         dirs 'libs'
     }
@@ -75,8 +94,7 @@ repositories {
 
 dependencies {
     // --- THE VPN ENGINE (Your 53MB Release File) ---
-    // Note: If the build fails to find this remotely, 
-    // manually ensure the name matches exactly.
+    // Make sure the name here matches exactly what your GitHub Action downloads
     implementation(files("libs/libv2ray.1.aar"))
 
     // Core Android Libraries
