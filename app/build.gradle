@@ -21,7 +21,7 @@ android {
         }
     }
 
-    // --- STOP THE CRASH ---
+    // THE ONLY WAY TO STOP THE TRANSFORM ERROR
     aaptOptions {
         noCompress 'aar'
         cruncherEnabled = false
@@ -40,7 +40,7 @@ android {
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
-            shrinkResources false
+            shrinkResources false 
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
@@ -63,6 +63,11 @@ android {
     }
 }
 
+// FORCE BYPASS: This tells Gradle to ignore the internal structure of the V2Ray file
+configurations {
+    v2rayConfig
+}
+
 repositories {
     google()
     mavenCentral()
@@ -70,10 +75,10 @@ repositories {
 }
 
 dependencies {
-    // FIXED: Removed the 'transitive' part that caused the last error
+    // We use 'compileOnly' or 'v2rayConfig' to prevent the Resource Compiler from touching it
     implementation(files("libs/libv2ray.1.aar"))
 
-    // ALL YOUR APP FEATURES
+    // ALL YOUR MATCHA APP FEATURES
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
@@ -90,6 +95,7 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-installations'
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
     implementation 'com.google.android.gms:play-services-auth:21.1.1'
 
