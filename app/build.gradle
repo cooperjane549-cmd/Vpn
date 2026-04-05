@@ -21,7 +21,7 @@ android {
         }
     }
 
-    // THE MAGIC BYPASS: This forces the build to ignore the internal manifest of the 53MB file
+    // THE ULTIMATE BYPASS
     aaptOptions {
         noCompress 'aar'
         cruncherEnabled = false
@@ -59,9 +59,7 @@ android {
     packagingOptions {
         resources {
             excludes += 'META-INF/*'
-            // This prevents duplicate file errors with the V2Ray core
             pickFirst 'lib/*/libv2ray.so'
-            pickFirst 'AndroidManifest.xml'
         }
     }
 }
@@ -69,16 +67,18 @@ android {
 repositories {
     google()
     mavenCentral()
-    // We keep this just in case, but notice the dependency change below
     flatDir { dirs 'libs' }
 }
 
 dependencies {
-    // CHANGE: Using 'compileOnly' and 'runtimeOnly' separately sometimes 
-    // tricks the resource compiler into ignoring the AAR's resources.
-    implementation(fileTree(dir: 'libs', include: ['*.aar']))
+    // --- THE FIX ---
+    // Instead of 'implementation', we use 'compileOnly' for the AAR 
+    // This stops Gradle from trying to 'transform' or 'compile' its resources
+    compileOnly(files("libs/libv2ray.1.aar"))
+    // This tells the app to actually include the code at runtime
+    runtimeOnly(files("libs/libv2ray.1.aar"))
 
-    // --- MATCHA APP DEPENDENCIES ---
+    // --- MATCHA APP FEATURES ---
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
