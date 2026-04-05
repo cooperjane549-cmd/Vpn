@@ -21,7 +21,7 @@ android {
         }
     }
 
-    // THE ONLY WAY TO STOP THE TRANSFORM ERROR
+    // THE MAGIC BYPASS: This forces the build to ignore the internal manifest of the 53MB file
     aaptOptions {
         noCompress 'aar'
         cruncherEnabled = false
@@ -59,26 +59,26 @@ android {
     packagingOptions {
         resources {
             excludes += 'META-INF/*'
+            // This prevents duplicate file errors with the V2Ray core
+            pickFirst 'lib/*/libv2ray.so'
+            pickFirst 'AndroidManifest.xml'
         }
     }
-}
-
-// FORCE BYPASS: This tells Gradle to ignore the internal structure of the V2Ray file
-configurations {
-    v2rayConfig
 }
 
 repositories {
     google()
     mavenCentral()
+    // We keep this just in case, but notice the dependency change below
     flatDir { dirs 'libs' }
 }
 
 dependencies {
-    // We use 'compileOnly' or 'v2rayConfig' to prevent the Resource Compiler from touching it
-    implementation(files("libs/libv2ray.1.aar"))
+    // CHANGE: Using 'compileOnly' and 'runtimeOnly' separately sometimes 
+    // tricks the resource compiler into ignoring the AAR's resources.
+    implementation(fileTree(dir: 'libs', include: ['*.aar']))
 
-    // ALL YOUR MATCHA APP FEATURES
+    // --- MATCHA APP DEPENDENCIES ---
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
@@ -86,12 +86,10 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation 'androidx.preference:preference-ktx:1.2.1'
     
-    // Networking
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation "com.squareup.okio:okio:3.6.0"
     implementation 'com.google.code.gson:gson:2.10.1'
     
-    // Firebase & Ads
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-database'
