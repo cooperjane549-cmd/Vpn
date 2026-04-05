@@ -1,4 +1,4 @@
-Name: Build SweetData VPN APK
+name: Build SweetData VPN APK
 
 on:
   push:
