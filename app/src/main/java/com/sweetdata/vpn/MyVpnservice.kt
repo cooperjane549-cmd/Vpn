@@ -15,27 +15,24 @@ class MyVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var coreController: CoreController? = null
     
+    // Server Details
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // --- THE CALLBACK HANDLER ---
+    // --- 1. THE ENGINE HANDLER ---
     private val v2rayHandler = object : CoreCallbackHandler {
         override fun onEmitStatus(status: Long, msg: String?): Long {
-            Log.d("SweetData", "Status ($status): $msg")
+            Log.d("SweetData", "Status Update ($status): $msg")
             return 0
         }
-
         override fun startup(): Long {
-            Log.d("SweetData", "V2Ray Engine Started")
+            Log.i("SweetData", "V2Ray Core is Running")
             return 0
         }
-
         override fun shutdown(): Long {
-            Log.d("SweetData", "V2Ray Engine Shutdown")
+            Log.i("SweetData", "V2Ray Core has Stopped")
             return 0
         }
-        
-        // Removed getAppVersion because your library doesn't require it
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -47,31 +44,35 @@ class MyVpnService : VpnService() {
         return START_STICKY
     }
 
+    // --- 2. 2026 BUG LIST (The 'Fake IDs') ---
     private fun getBugList(): List<String> {
         val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val carrierName = tm.networkOperatorName.lowercase()
 
         return when {
+            // Safaricom: Using M-Pesa and payment portals (hardest to block)
             carrierName.contains("safaricom") -> listOf(
+                "m-pesaforbusiness.co.ke",
+                "daraja.safaricom.co.ke",
                 "api.safaricom.co.ke",
-                "v-safaricom.com",
-                "safaricom.com",
-                "data.education.go.ke"
+                "v-safaricom.com"
             )
+            // Airtel: Using FreeBasics and Education portals
             carrierName.contains("airtel") -> listOf(
+                "0.freebasics.com",
                 "v.whatsapp.net",
                 "airtellive.com",
-                "wynk.in",
-                "one.one.one.one"
+                "selfcare.airtelkenya.com"
             )
-            else -> listOf("one.one.one.one", "8.8.8.8")
+            else -> listOf("one.one.one.one", "www.google.com")
         }
     }
 
+    // --- 3. VPN STARTUP ---
     private fun setupAndStartVpn() {
         val bugs = getBugList()
         
-        // Initialize paths
+        // Initialize paths for the engine
         Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
         val builder = Builder()
@@ -87,17 +88,20 @@ class MyVpnService : VpnService() {
             Thread {
                 for (activeBug in bugs) {
                     try {
-                        Log.d("SweetData", "Trying Bug: $activeBug")
+                        Log.d("SweetData", "Testing Bug: $activeBug")
                         val config = generateVlessConfig(activeBug)
                         
                         coreController = Libv2ray.newCoreController(v2rayHandler)
                         Libv2ray.touch()
                         
-                        // Start the tunnel
+                        // Start the tunnel with the VPN file descriptor
                         coreController?.startLoop(config, vpnInterface!!.fd)
+                        
+                        // Wait a second to see if it stays connected
+                        Thread.sleep(1500)
                         break 
                     } catch (e: Exception) {
-                        Log.e("SweetData", "Bug $activeBug failed, retrying...")
+                        Log.e("SweetData", "Bug $activeBug failed: ${e.message}")
                         continue 
                     }
                 }
@@ -105,6 +109,7 @@ class MyVpnService : VpnService() {
         }
     }
 
+    // --- 4. THE POWERFUL CONFIG ---
     private fun generateVlessConfig(bug: String): String {
         return """
         {
@@ -121,8 +126,15 @@ class MyVpnService : VpnService() {
             "streamSettings": {
               "network": "ws",
               "security": "tls",
-              "tlsSettings": { "serverName": "$bug", "allowInsecure": true },
-              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$bug" } }
+              "tlsSettings": { 
+                "serverName": "$bug", 
+                "allowInsecure": true,
+                "fingerprint": "chrome" 
+              },
+              "wsSettings": { 
+                "path": "/sweetdata", 
+                "headers": { "Host": "$bug" } 
+              }
             }
           }]
         }
@@ -133,7 +145,7 @@ class MyVpnService : VpnService() {
         try {
             coreController?.stopLoop()
         } catch (e: Exception) {
-            Log.e("SweetData", "Stop Error: ${e.message}")
+            Log.e("SweetData", "Stop Error")
         }
         vpnInterface?.close()
         vpnInterface = null
