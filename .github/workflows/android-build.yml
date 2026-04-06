@@ -31,27 +31,32 @@ jobs:
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
 
-      # --- DOWNLOAD STEP ---
       - name: Download V2Ray Engine
         shell: bash
         run: |
           mkdir -p app/libs
           echo "Downloading 53MB engine from Public Release..."
-          # -L follows redirects, -f fails the build if the link returns 404
-          curl -L -f "https://github.com/cooperjane549-cmd/Vpn/releases/download/v1.0/libv2ray.1.aar" -o app/libs/libv2ray.1.aar || { echo "DOWNLOAD FAILED - Check the URL or Filename"; exit 1; }
+          curl -L -f "https://github.com/cooperjane549-cmd/Vpn/releases/download/v1.0/libv2ray.1.aar" -o app/libs/libv2ray.1.aar || { echo "DOWNLOAD FAILED"; exit 1; }
+
+      # --- THE "ROOT CAUSE" DISCOVERY STEP ---
+      - name: X-Ray the Library (Find Real Function Names)
+        run: |
+          echo "Extracting class list from AAR..."
+          unzip -p app/libs/libv2ray.1.aar classes.jar > engine_classes.jar
+          echo "--- START OF LIBRARY MANUAL ---"
+          # This command prints all valid function names inside the Libv2ray class
+          javap -cp engine_classes.jar libv2ray.Libv2ray || echo "Class libv2ray.Libv2ray not found"
+          echo "--- END OF LIBRARY MANUAL ---"
 
       - name: Verify Downloaded File
         run: |
-          echo "Checking file size and type..."
           ls -lh app/libs/libv2ray.1.aar
-          # If this shows 'Zip archive data', we have won.
           file app/libs/libv2ray.1.aar
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release-key.jks
 
       - name: Build Debug APK
-        # 'clean' ensures we don't use old corrupted cache data
         run: ./gradlew clean :app:assembleDebug
 
       - name: Build Release APK
