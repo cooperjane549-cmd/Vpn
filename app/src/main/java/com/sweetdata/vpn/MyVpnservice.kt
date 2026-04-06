@@ -7,10 +7,12 @@ import android.os.ParcelFileDescriptor
 import android.telephony.TelephonyManager
 import android.util.Log
 import libv2ray.Libv2ray 
+import libv2ray.CoreController // Found in your X-Ray
 
 class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
+    private var coreController: CoreController? = null
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
@@ -26,6 +28,10 @@ class MyVpnService : VpnService() {
     private fun setupAndStartVpn() {
         val bug = getCarrierBug()
         
+        // --- STEP 1: INITIALIZE ENVIRONMENT ---
+        // This library requires setting up environment strings (usually assets/log paths)
+        Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
+
         val builder = Builder()
         builder.setSession("SweetData VPN")
             .addAddress("10.0.0.2", 24)
@@ -40,8 +46,15 @@ class MyVpnService : VpnService() {
             
             Thread {
                 try {
-                    // TRY: .runV2Ray(config) -> Capital R
-                    Libv2ray.runV2Ray(config)
+                    // --- STEP 2: CREATE CONTROLLER ---
+                    // The X-Ray showed 'newCoreController'. We pass null for the callback handler for now.
+                    coreController = Libv2ray.newCoreController(null)
+                    
+                    // --- STEP 3: START ---
+                    // Most controllers have a .start(config) or .startLoop(config)
+                    // We call 'touch' to ensure the library is loaded
+                    Libv2ray.touch()
+                    coreController?.startLoop(config, vpnInterface!!.fd)
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
                 }
@@ -81,8 +94,8 @@ class MyVpnService : VpnService() {
 
     private fun stopVpn() {
         try {
-            // TRY: .stopV2Ray() -> Capital R
-            Libv2ray.stopV2Ray()
+            // Stop the controller we created
+            coreController?.stopLoop()
         } catch (e: Exception) {
             Log.e("SweetData", "Stop Error: ${e.message}")
         }
