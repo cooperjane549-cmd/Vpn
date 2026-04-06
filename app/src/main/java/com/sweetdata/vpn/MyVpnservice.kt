@@ -40,11 +40,9 @@ class MyVpnService : VpnService() {
             
             Thread {
                 try {
-                    // TRY 1: runV2ray (lowercase 'r', lowercase 'y')
-                    Libv2ray.runV2ray(config)
-                    
-                    // IF TRY 1 FAILS, DELETE ABOVE AND USE: Libv2ray.main(config)
-                    // IF THAT FAILS, USE: Libv2ray.testV2ray(config)
+                    // TRY: .main(config) 
+                    // This is the most common entry point for Gomobile V2Ray
+                    Libv2ray.main(config)
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
                 }
@@ -84,8 +82,8 @@ class MyVpnService : VpnService() {
 
     private fun stopVpn() {
         try {
-            // TRY 1: stopV2ray (lowercase 's', lowercase 'y')
-            Libv2ray.stopV2ray()
+            // TRY: .stop()
+            Libv2ray.stop()
         } catch (e: Exception) {
             Log.e("SweetData", "Stop Error: ${e.message}")
         }
