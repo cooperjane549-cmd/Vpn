@@ -31,6 +31,7 @@ jobs:
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
 
+      # --- 1. DOWNLOAD THE ENGINE ---
       - name: Download V2Ray Engine
         shell: bash
         run: |
@@ -38,30 +39,39 @@ jobs:
           echo "Downloading 53MB engine from Public Release..."
           curl -L -f "https://github.com/cooperjane549-cmd/Vpn/releases/download/v1.0/libv2ray.1.aar" -o app/libs/libv2ray.1.aar || { echo "DOWNLOAD FAILED"; exit 1; }
 
-      # --- THE "ROOT CAUSE" DISCOVERY STEP ---
-      - name: X-Ray the Library (Find Real Function Names)
+      # --- 2. THE X-RAY INSPECTION (ROOT CAUSE DISCOVERY) ---
+      - name: X-Ray the Library
         run: |
           echo "Extracting class list from AAR..."
           unzip -p app/libs/libv2ray.1.aar classes.jar > engine_classes.jar
-          echo "--- START OF LIBRARY MANUAL ---"
-          # This command prints all valid function names inside the Libv2ray class
-          javap -cp engine_classes.jar libv2ray.Libv2ray || echo "Class libv2ray.Libv2ray not found"
-          echo "--- END OF LIBRARY MANUAL ---"
+          
+          echo "--- [1] MAIN CLASS MANUAL ---"
+          javap -cp engine_classes.jar libv2ray.Libv2ray || echo "Libv2ray class not found"
+          
+          echo "--- [2] CONTROLLER CLASS MANUAL ---"
+          # This tells us if the command is .startLoop, .run, or .execute
+          javap -cp engine_classes.jar libv2ray.CoreController || echo "CoreController class not found"
+          
+          echo "--- END OF MANUAL ---"
 
-      - name: Verify Downloaded File
+      - name: Verify Download Success
         run: |
           ls -lh app/libs/libv2ray.1.aar
           file app/libs/libv2ray.1.aar
 
+      # --- 3. PREPARE KEYSTORE ---
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release-key.jks
 
+      # --- 4. THE BUILD ---
       - name: Build Debug APK
+        # Clean ensures we don't use any old corrupted .aar cache
         run: ./gradlew clean :app:assembleDebug
 
       - name: Build Release APK
         run: ./gradlew :app:assembleRelease
 
+      # --- 5. SAVE THE RESULTS ---
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
