@@ -8,20 +8,25 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import libv2ray.Libv2ray 
 import libv2ray.CoreController
-import libv2ray.CoreCallbackHandler // Add this import
+import libv2ray.CoreCallbackHandler 
 
 class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var coreController: CoreController? = null
     
-    // Create a simple handler to prevent the 'null' crash
+    // --- THE FIX: IMPLEMENT ALL REQUIRED METHODS ---
     private val v2rayHandler = object : CoreCallbackHandler {
         override fun onEmitStatus(status: Long, msg: String?): Long {
             Log.d("SweetData", "V2Ray Status ($status): $msg")
             return 0
         }
-        // If your X-Ray showed other methods in CoreCallbackHandler, add them here
+
+        // The compiler specifically asked for this one:
+        override fun shutdown(): Long {
+            Log.d("SweetData", "V2Ray Core Shutdown")
+            return 0
+        }
     }
 
     private val vpsIp = "62.169.23.118"
@@ -39,7 +44,7 @@ class MyVpnService : VpnService() {
     private fun setupAndStartVpn() {
         val bug = getCarrierBug()
         
-        // Initialize the Core Environment
+        // Initialize Core Environment
         Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
         val builder = Builder()
@@ -56,12 +61,12 @@ class MyVpnService : VpnService() {
             
             Thread {
                 try {
-                    // FIX: Pass the 'v2rayHandler' instead of 'null'
+                    // Create Controller with our new Handler
                     coreController = Libv2ray.newCoreController(v2rayHandler)
                     
                     Libv2ray.touch()
                     
-                    // Note: Use the exact method name found in your X-Ray for CoreController
+                    // Start the core using the FD from our VPN interface
                     coreController?.startLoop(config, vpnInterface!!.fd)
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
@@ -70,7 +75,35 @@ class MyVpnService : VpnService() {
         }
     }
 
-    // ... (Keep your getCarrierBug and generateVlessConfig functions the same)
+    private fun getCarrierBug(): String {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val carrierName = tm.networkOperatorName.lowercase()
+
+        return when {
+            carrierName.contains("safaricom") -> "v-safaricom.com"
+            carrierName.contains("airtel") -> "v.whatsapp.net"
+            else -> "www.google.com"
+        }
+    }
+
+    private fun generateVlessConfig(bug: String): String {
+        return """
+        {
+          "outbounds": [{
+            "protocol": "vless",
+            "settings": {
+              "vnext": [{"address": "$vpsIp", "port": 443, "users": [{"id": "$vlessUuid", "encryption": "none"}]}]
+            },
+            "streamSettings": {
+              "network": "ws",
+              "security": "tls",
+              "tlsSettings": { "serverName": "$bug", "allowInsecure": true },
+              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$bug" } }
+            }
+          }]
+        }
+        """.trimIndent()
+    }
 
     private fun stopVpn() {
         try {
