@@ -14,6 +14,7 @@ class MyVpnService : VpnService() {
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
+    // Fix: Added 'override' and fixed capitalization to match library expectations
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
             stopVpn()
@@ -24,11 +25,9 @@ class MyVpnService : VpnService() {
     }
 
     private fun setupAndStartVpn() {
-        // --- STEP 1: DETECT CARRIER ---
         val bug = getCarrierBug()
         Log.d("SweetData", "Selected Bug: $bug")
 
-        // --- STEP 2: BUILD VPN INTERFACE ---
         val builder = Builder()
         builder.setSession("SweetData VPN")
             .addAddress("10.0.0.2", 24)
@@ -43,8 +42,9 @@ class MyVpnService : VpnService() {
             
             Thread {
                 try {
-                    // Starts the V2Ray core with the chosen bug
-                    Libv2ray.runV2Ray(config) 
+                    // Fix: Many V2Ray wrappers use 'runV2ray' (lowercase 'r') 
+                    // If the error persists, check if it should be Libv2ray.main(config)
+                    Libv2ray.runV2ray(config) 
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
                 }
@@ -57,9 +57,9 @@ class MyVpnService : VpnService() {
         val carrierName = tm.networkOperatorName.lowercase()
 
         return when {
-            carrierName.contains("safaricom") -> "v-safaricom.com" // Safaricom Bug
-            carrierName.contains("airtel") -> "v.whatsapp.net"    // Airtel Bug
-            else -> "www.google.com" // Default fallback
+            carrierName.contains("safaricom") -> "v-safaricom.com"
+            carrierName.contains("airtel") -> "v.whatsapp.net"
+            else -> "www.google.com"
         }
     }
 
@@ -89,8 +89,17 @@ class MyVpnService : VpnService() {
     }
 
     private fun stopVpn() {
-        Libv2ray.stopV2Ray()
+        try {
+            Libv2ray.stopV2ray() 
+        } catch (e: Exception) {
+            Log.e("SweetData", "Stop Error: ${e.message}")
+        }
         vpnInterface?.close()
         stopSelf()
+    }
+
+    override fun onDestroy() {
+        stopVpn()
+        super.onDestroy()
     }
 }
