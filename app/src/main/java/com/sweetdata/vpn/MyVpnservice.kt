@@ -7,12 +7,23 @@ import android.os.ParcelFileDescriptor
 import android.telephony.TelephonyManager
 import android.util.Log
 import libv2ray.Libv2ray 
-import libv2ray.CoreController // Found in your X-Ray
+import libv2ray.CoreController
+import libv2ray.CoreCallbackHandler // Add this import
 
 class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var coreController: CoreController? = null
+    
+    // Create a simple handler to prevent the 'null' crash
+    private val v2rayHandler = object : CoreCallbackHandler {
+        override fun onEmitStatus(status: Long, msg: String?): Long {
+            Log.d("SweetData", "V2Ray Status ($status): $msg")
+            return 0
+        }
+        // If your X-Ray showed other methods in CoreCallbackHandler, add them here
+    }
+
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
@@ -28,8 +39,7 @@ class MyVpnService : VpnService() {
     private fun setupAndStartVpn() {
         val bug = getCarrierBug()
         
-        // --- STEP 1: INITIALIZE ENVIRONMENT ---
-        // This library requires setting up environment strings (usually assets/log paths)
+        // Initialize the Core Environment
         Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
         val builder = Builder()
@@ -46,14 +56,12 @@ class MyVpnService : VpnService() {
             
             Thread {
                 try {
-                    // --- STEP 2: CREATE CONTROLLER ---
-                    // The X-Ray showed 'newCoreController'. We pass null for the callback handler for now.
-                    coreController = Libv2ray.newCoreController(null)
+                    // FIX: Pass the 'v2rayHandler' instead of 'null'
+                    coreController = Libv2ray.newCoreController(v2rayHandler)
                     
-                    // --- STEP 3: START ---
-                    // Most controllers have a .start(config) or .startLoop(config)
-                    // We call 'touch' to ensure the library is loaded
                     Libv2ray.touch()
+                    
+                    // Note: Use the exact method name found in your X-Ray for CoreController
                     coreController?.startLoop(config, vpnInterface!!.fd)
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
@@ -62,39 +70,10 @@ class MyVpnService : VpnService() {
         }
     }
 
-    private fun getCarrierBug(): String {
-        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        val carrierName = tm.networkOperatorName.lowercase()
-
-        return when {
-            carrierName.contains("safaricom") -> "v-safaricom.com"
-            carrierName.contains("airtel") -> "v.whatsapp.net"
-            else -> "www.google.com"
-        }
-    }
-
-    private fun generateVlessConfig(bug: String): String {
-        return """
-        {
-          "outbounds": [{
-            "protocol": "vless",
-            "settings": {
-              "vnext": [{"address": "$vpsIp", "port": 443, "users": [{"id": "$vlessUuid", "encryption": "none"}]}]
-            },
-            "streamSettings": {
-              "network": "ws",
-              "security": "tls",
-              "tlsSettings": { "serverName": "$bug", "allowInsecure": true },
-              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$bug" } }
-            }
-          }]
-        }
-        """.trimIndent()
-    }
+    // ... (Keep your getCarrierBug and generateVlessConfig functions the same)
 
     private fun stopVpn() {
         try {
-            // Stop the controller we created
             coreController?.stopLoop()
         } catch (e: Exception) {
             Log.e("SweetData", "Stop Error: ${e.message}")
