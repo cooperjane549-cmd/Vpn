@@ -25,8 +25,7 @@ class MyVpnService : VpnService() {
 
     private fun setupAndStartVpn() {
         val bug = getCarrierBug()
-        Log.d("SweetData", "Selected Bug: $bug")
-
+        
         val builder = Builder()
         builder.setSession("SweetData VPN")
             .addAddress("10.0.0.2", 24)
@@ -38,16 +37,16 @@ class MyVpnService : VpnService() {
         
         if (vpnInterface != null) {
             val config = generateVlessConfig(bug)
-            val fd = vpnInterface!!.fd // We need the File Descriptor for the engine
             
             Thread {
                 try {
-                    // Try the standard Go-bind start function
-                    // Format: Libv2ray.startLoop(config, fileDescriptor)
-                    Libv2ray.startLoop(config, fd) 
+                    // TRY 1: runV2ray (lowercase 'r', lowercase 'y')
+                    Libv2ray.runV2ray(config)
+                    
+                    // IF TRY 1 FAILS, DELETE ABOVE AND USE: Libv2ray.main(config)
+                    // IF THAT FAILS, USE: Libv2ray.testV2ray(config)
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
-                    // Fallback: If 'startLoop' fails, try 'runV2ray' or 'main'
                 }
             }.start()
         }
@@ -67,7 +66,6 @@ class MyVpnService : VpnService() {
     private fun generateVlessConfig(bug: String): String {
         return """
         {
-          "log": { "loglevel": "warning" },
           "outbounds": [{
             "protocol": "vless",
             "settings": {
@@ -86,8 +84,8 @@ class MyVpnService : VpnService() {
 
     private fun stopVpn() {
         try {
-            // Standard stop command for this library
-            Libv2ray.stopLoop() 
+            // TRY 1: stopV2ray (lowercase 's', lowercase 'y')
+            Libv2ray.stopV2ray()
         } catch (e: Exception) {
             Log.e("SweetData", "Stop Error: ${e.message}")
         }
