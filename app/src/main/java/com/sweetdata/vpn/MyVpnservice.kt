@@ -14,7 +14,6 @@ class MyVpnService : VpnService() {
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // Fix: Added 'override' and fixed capitalization to match library expectations
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
             stopVpn()
@@ -39,14 +38,16 @@ class MyVpnService : VpnService() {
         
         if (vpnInterface != null) {
             val config = generateVlessConfig(bug)
+            val fd = vpnInterface!!.fd // We need the File Descriptor for the engine
             
             Thread {
                 try {
-                    // Fix: Many V2Ray wrappers use 'runV2ray' (lowercase 'r') 
-                    // If the error persists, check if it should be Libv2ray.main(config)
-                    Libv2ray.runV2ray(config) 
+                    // Try the standard Go-bind start function
+                    // Format: Libv2ray.startLoop(config, fileDescriptor)
+                    Libv2ray.startLoop(config, fd) 
                 } catch (e: Exception) {
                     Log.e("SweetData", "Core Error: ${e.message}")
+                    // Fallback: If 'startLoop' fails, try 'runV2ray' or 'main'
                 }
             }.start()
         }
@@ -66,6 +67,7 @@ class MyVpnService : VpnService() {
     private fun generateVlessConfig(bug: String): String {
         return """
         {
+          "log": { "loglevel": "warning" },
           "outbounds": [{
             "protocol": "vless",
             "settings": {
@@ -74,14 +76,8 @@ class MyVpnService : VpnService() {
             "streamSettings": {
               "network": "ws",
               "security": "tls",
-              "tlsSettings": { 
-                "serverName": "$bug", 
-                "allowInsecure": true 
-              },
-              "wsSettings": { 
-                "path": "/sweetdata", 
-                "headers": { "Host": "$bug" } 
-              }
+              "tlsSettings": { "serverName": "$bug", "allowInsecure": true },
+              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$bug" } }
             }
           }]
         }
@@ -90,11 +86,13 @@ class MyVpnService : VpnService() {
 
     private fun stopVpn() {
         try {
-            Libv2ray.stopV2ray() 
+            // Standard stop command for this library
+            Libv2ray.stopLoop() 
         } catch (e: Exception) {
             Log.e("SweetData", "Stop Error: ${e.message}")
         }
         vpnInterface?.close()
+        vpnInterface = null
         stopSelf()
     }
 
