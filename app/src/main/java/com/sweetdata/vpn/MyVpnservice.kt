@@ -18,8 +18,7 @@ class MyVpnService : VpnService() {
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // --- 1. THE INTERFACE HANDLER ---
-    // Implements all methods required by the libv2ray engine to prevent crashes
+    // --- THE CALLBACK HANDLER ---
     private val v2rayHandler = object : CoreCallbackHandler {
         override fun onEmitStatus(status: Long, msg: String?): Long {
             Log.d("SweetData", "Status ($status): $msg")
@@ -35,10 +34,8 @@ class MyVpnService : VpnService() {
             Log.d("SweetData", "V2Ray Engine Shutdown")
             return 0
         }
-
-        override fun getAppVersion(): String {
-            return "1.0.0"
-        }
+        
+        // Removed getAppVersion because your library doesn't require it
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -50,33 +47,31 @@ class MyVpnService : VpnService() {
         return START_STICKY
     }
 
-    // --- 2. BUG HUNTING LOGIC ---
     private fun getBugList(): List<String> {
         val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val carrierName = tm.networkOperatorName.lowercase()
 
         return when {
             carrierName.contains("safaricom") -> listOf(
-                "api.safaricom.co.ke",   // M-Pesa/App bypass
-                "v-safaricom.com",       // Standard SNI
-                "safaricom.com",         // Root domain
-                "data.education.go.ke"   // Education bundle
+                "api.safaricom.co.ke",
+                "v-safaricom.com",
+                "safaricom.com",
+                "data.education.go.ke"
             )
             carrierName.contains("airtel") -> listOf(
-                "v.whatsapp.net",        // Social bundle bypass
-                "airtellive.com",        // Portal bypass
-                "wynk.in",               // Music bypass
-                "one.one.one.one"        // Cloudflare fallback
+                "v.whatsapp.net",
+                "airtellive.com",
+                "wynk.in",
+                "one.one.one.one"
             )
             else -> listOf("one.one.one.one", "8.8.8.8")
         }
     }
 
-    // --- 3. VPN ESTABLISHMENT ---
     private fun setupAndStartVpn() {
         val bugs = getBugList()
         
-        // Initialize Core with internal app paths
+        // Initialize paths
         Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
         val builder = Builder()
@@ -90,23 +85,20 @@ class MyVpnService : VpnService() {
         
         if (vpnInterface != null) {
             Thread {
-                // Logic: Try each bug in the list until the engine accepts one
                 for (activeBug in bugs) {
                     try {
-                        Log.d("SweetData", "Hunting with Bug: $activeBug")
+                        Log.d("SweetData", "Trying Bug: $activeBug")
                         val config = generateVlessConfig(activeBug)
                         
                         coreController = Libv2ray.newCoreController(v2rayHandler)
                         Libv2ray.touch()
                         
-                        // Start the tunnel loop
+                        // Start the tunnel
                         coreController?.startLoop(config, vpnInterface!!.fd)
-                        
-                        // If it starts successfully, we break the loop and stay connected
                         break 
                     } catch (e: Exception) {
-                        Log.e("SweetData", "Bug $activeBug failed: ${e.message}")
-                        continue // Move to next bug in the list
+                        Log.e("SweetData", "Bug $activeBug failed, retrying...")
+                        continue 
                     }
                 }
             }.start()
