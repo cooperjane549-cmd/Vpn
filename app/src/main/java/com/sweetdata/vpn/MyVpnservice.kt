@@ -14,23 +14,23 @@ class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var coreController: CoreController? = null
+    private var isRunning = false
     
-    // Server Details
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
 
-    // --- 1. THE ENGINE HANDLER ---
     private val v2rayHandler = object : CoreCallbackHandler {
         override fun onEmitStatus(status: Long, msg: String?): Long {
-            Log.d("SweetData", "Status Update ($status): $msg")
+            Log.d("SweetData", "Status: $msg")
             return 0
         }
         override fun startup(): Long {
-            Log.i("SweetData", "V2Ray Core is Running")
+            isRunning = true
+            Log.i("SweetData", "Engine Started Successfully")
             return 0
         }
         override fun shutdown(): Long {
-            Log.i("SweetData", "V2Ray Core has Stopped")
+            isRunning = false
             return 0
         }
     }
@@ -40,76 +40,68 @@ class MyVpnService : VpnService() {
             stopVpn()
             return START_NOT_STICKY
         }
-        setupAndStartVpn()
+        
+        // Prevent double-starting which causes crashes
+        if (!isRunning) {
+            setupAndStartVpn()
+        }
         return START_STICKY
     }
 
-    // --- 2. 2026 BUG LIST (The 'Fake IDs') ---
     private fun getBugList(): List<String> {
         val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val carrierName = tm.networkOperatorName.lowercase()
 
         return when {
-            // Safaricom: Using M-Pesa and payment portals (hardest to block)
-            carrierName.contains("safaricom") -> listOf(
-                "m-pesaforbusiness.co.ke",
-                "daraja.safaricom.co.ke",
-                "api.safaricom.co.ke",
-                "v-safaricom.com"
-            )
-            // Airtel: Using FreeBasics and Education portals
-            carrierName.contains("airtel") -> listOf(
-                "0.freebasics.com",
-                "v.whatsapp.net",
-                "airtellive.com",
-                "selfcare.airtelkenya.com"
-            )
-            else -> listOf("one.one.one.one", "www.google.com")
+            carrierName.contains("safaricom") -> listOf("m-pesaforbusiness.co.ke", "api.safaricom.co.ke")
+            carrierName.contains("airtel") -> listOf("v.whatsapp.net", "0.freebasics.com")
+            else -> listOf("one.one.one.one")
         }
     }
 
-    // --- 3. VPN STARTUP ---
     private fun setupAndStartVpn() {
         val bugs = getBugList()
-        
-        // Initialize paths for the engine
         Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
         val builder = Builder()
         builder.setSession("SweetData VPN")
             .addAddress("10.0.0.2", 24)
-            .addRoute("0.0.0.0", 0)
+            .addRoute("0.0.0.0", 0) // This sends ALL traffic to the VPN
             .addDnsServer("8.8.8.8")
             .addDisallowedApplication(packageName) 
 
-        vpnInterface = builder.establish()
-        
-        if (vpnInterface != null) {
-            Thread {
-                for (activeBug in bugs) {
-                    try {
-                        Log.d("SweetData", "Testing Bug: $activeBug")
-                        val config = generateVlessConfig(activeBug)
-                        
-                        coreController = Libv2ray.newCoreController(v2rayHandler)
-                        Libv2ray.touch()
-                        
-                        // Start the tunnel with the VPN file descriptor
-                        coreController?.startLoop(config, vpnInterface!!.fd)
-                        
-                        // Wait a second to see if it stays connected
-                        Thread.sleep(1500)
-                        break 
-                    } catch (e: Exception) {
-                        Log.e("SweetData", "Bug $activeBug failed: ${e.message}")
-                        continue 
+        try {
+            vpnInterface = builder.establish()
+            
+            if (vpnInterface != null) {
+                Thread {
+                    // CRITICAL FIX: Give Android 500ms to stabilize the interface
+                    Thread.sleep(500) 
+                    
+                    for (activeBug in bugs) {
+                        try {
+                            if (vpnInterface == null) break
+                            
+                            val config = generateVlessConfig(activeBug)
+                            coreController = Libv2ray.newCoreController(v2rayHandler)
+                            Libv2ray.touch()
+                            
+                            // Start the engine
+                            coreController?.startLoop(config, vpnInterface!!.fd)
+                            break 
+                        } catch (e: Exception) {
+                            Log.e("SweetData", "Bug failed: ${e.message}")
+                            continue 
+                        }
                     }
-                }
-            }.start()
+                }.start()
+            }
+        } catch (e: Exception) {
+            Log.e("SweetData", "Establish failed: ${e.message}")
+            stopSelf()
         }
     }
 
-    // --- 4. THE POWERFUL CONFIG ---
     private fun generateVlessConfig(bug: String): String {
         return """
         {
@@ -117,24 +109,13 @@ class MyVpnService : VpnService() {
           "outbounds": [{
             "protocol": "vless",
             "settings": {
-              "vnext": [{
-                "address": "$vpsIp", 
-                "port": 443, 
-                "users": [{"id": "$vlessUuid", "encryption": "none"}]
-              }]
+              "vnext": [{"address": "$vpsIp", "port": 443, "users": [{"id": "$vlessUuid", "encryption": "none"}]}]
             },
             "streamSettings": {
               "network": "ws",
               "security": "tls",
-              "tlsSettings": { 
-                "serverName": "$bug", 
-                "allowInsecure": true,
-                "fingerprint": "chrome" 
-              },
-              "wsSettings": { 
-                "path": "/sweetdata", 
-                "headers": { "Host": "$bug" } 
-              }
+              "tlsSettings": { "serverName": "$bug", "allowInsecure": true, "fingerprint": "chrome" },
+              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$bug" } }
             }
           }]
         }
@@ -142,12 +123,9 @@ class MyVpnService : VpnService() {
     }
 
     private fun stopVpn() {
-        try {
-            coreController?.stopLoop()
-        } catch (e: Exception) {
-            Log.e("SweetData", "Stop Error")
-        }
-        vpnInterface?.close()
+        isRunning = false
+        try { coreController?.stopLoop() } catch (e: Exception) {}
+        try { vpnInterface?.close() } catch (e: Exception) {}
         vpnInterface = null
         stopSelf()
     }
