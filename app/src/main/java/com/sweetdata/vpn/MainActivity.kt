@@ -9,7 +9,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
-import android.telephony.TelephonyManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     
     private val PREFS_NAME = "SweetDataPrefs"
     private val handler = Handler(Looper.getMainLooper())
+    
     private val timeUpdater = object : Runnable {
         override fun run() {
             updateBalanceUI()
@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Initialize Firebase & Google Auth
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
@@ -66,12 +67,13 @@ class MainActivity : AppCompatActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
+        // UI Bindings
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // Network Toggle Logic
+        // Network Selection
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -80,6 +82,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -88,11 +91,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
+        // Connection Trigger
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
-        // STARTUP CHECK: Redirect to Google Login if not properly signed in
+        // Auth Gate
         val user = auth.currentUser
         if (user == null || user.isAnonymous) {
             signInWithGoogle()
@@ -101,12 +105,12 @@ class MainActivity : AppCompatActivity() {
             syncTimeFromFirebase()
         }
 
+        // Ads Initialization
         MobileAds.initialize(this) {}
         loadInterstitial()
         handler.post(timeUpdater)
     }
 
-    // MANDATORY SAFETY CHAIN: Terms -> Battery -> Dashboard
     private fun runSafetyChecks() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean("terms_accepted", false)) {
@@ -147,10 +151,53 @@ class MainActivity : AppCompatActivity() {
         
         if (System.currentTimeMillis() < expiry) {
             val intent = android.net.VpnService.prepare(this)
-            if (intent != null) startActivityForResult(intent, 102)
-            else onActivityResult(102, RESULT_OK, null)
+            if (intent != null) {
+                startActivityForResult(intent, 102)
+            } else {
+                startVpnFlow()
+            }
         } else {
             Toast.makeText(this, "ACCESS EXPIRED! Renew in STORE or TASKS", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // --- THE SEQUENTIAL ADS + VPN START LOGIC ---
+    private fun startVpnFlow() {
+        if (mInterstitialAd != null) {
+            mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    // Start VPN only after ad is closed
+                    executeVpnStart()
+                    mInterstitialAd = null // Clear used ad
+                    loadInterstitial() // Pre-load next
+                }
+
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    executeVpnStart()
+                }
+            }
+            mInterstitialAd?.show(this)
+        } else {
+            // No ad ready, start immediately
+            executeVpnStart()
+        }
+    }
+
+    private fun executeVpnStart() {
+        try {
+            startService(Intent(this, MyVpnService::class.java))
+            isVpnRunning = true
+            btnConnect.text = "STOP"
+            tvStatus.text = "CONNECTING..."
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to start engine", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 102 && resultCode == RESULT_OK) {
+            startVpnFlow()
         }
     }
 
@@ -188,6 +235,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
+        // Ad Unit ID: ca-app-pub-2344867686796379/4612206920
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
@@ -195,19 +243,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     mInterstitialAd = null
-                    handler.postDelayed({ loadInterstitial() }, 15000)
+                    // Retry loading after 20 seconds
+                    handler.postDelayed({ loadInterstitial() }, 20000)
                 }
             })
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 102 && resultCode == RESULT_OK) {
-            startService(Intent(this, MyVpnService::class.java))
-            isVpnRunning = true
-            btnConnect.text = "STOP"
-            if (mInterstitialAd != null) mInterstitialAd?.show(this)
-        }
     }
 
     private fun stopVpn() {
