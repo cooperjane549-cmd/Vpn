@@ -4,32 +4,33 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import libv2ray.Libv2ray 
+import libv2ray.Libv2ray
 import libv2ray.CoreController
-import libv2ray.CoreCallbackHandler 
+import libv2ray.CoreCallbackHandler
 
 class MyVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var coreController: CoreController? = null
     private var isRunning = false
-    
-    // Server Config - Verified from your 'cat' command
+
+    // HARDCODED CONFIG - To eliminate variable errors
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
+    private val SNI_BUG = "m-pesaforbusiness.co.ke"
 
     private val v2rayHandler = object : CoreCallbackHandler {
         override fun onEmitStatus(status: Long, msg: String?): Long {
-            Log.d("SweetData", "V2Ray Status: $msg")
+            Log.d("SweetData", "Core Status: $msg")
             return 0
         }
-        override fun startup(): Long {
-            isRunning = true
-            return 0
+        override fun startup(): Long { 
+            isRunning = true 
+            return 0 
         }
-        override fun shutdown(): Long {
-            isRunning = false
-            return 0
+        override fun shutdown(): Long { 
+            isRunning = false 
+            return 0 
         }
     }
 
@@ -46,73 +47,76 @@ class MyVpnService : VpnService() {
 
     private fun setupAndStartVpn() {
         try {
-            // 1. Initialize Core
+            // 1. Initialize environment
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
-            // 2. Build the VPN Tunnel
+            // 2. Build the VPN Tunnel with strict routing
             val builder = Builder()
                 .setSession("SweetData VPN")
-                .addAddress("10.0.0.2", 24)
-                .addRoute("0.0.0.0", 0) 
+                .setMtu(1500)
+                .addAddress("172.19.0.1", 30) // VPN Internal IP
+                .addDnsServer("8.8.8.8")      // Force Google DNS
                 .addDnsServer("1.1.1.1")
-                .setMtu(1400)
-                .addDisallowedApplication(packageName) 
+                .addRoute("0.0.0.0", 0)       // Capture all internet traffic
+                .addDisallowedApplication(packageName) // Prevent the app from tunneling itself
 
-            // Prevent loop by excluding the VPS IP
-            builder.addRoute(vpsIp, 32)
+            // CRITICAL: Exclude your VPS IP so the tunnel connection itself stays outside the VPN
+            builder.addRoute(vpsIp, 32) 
 
             vpnInterface = builder.establish()
-            
+
             if (vpnInterface != null) {
                 val fd = vpnInterface!!.fd
-                
-                // 3. Start Core in a Background Thread
                 Thread {
                     try {
-                        val config = generateVlessConfig("m-pesaforbusiness.co.ke")
+                        val config = generateFullConfig()
                         coreController = Libv2ray.newCoreController(v2rayHandler)
-                        Libv2ray.touch()
                         coreController?.startLoop(config, fd)
                     } catch (e: Exception) {
-                        Log.e("SweetData", "Core Loop Error: ${e.message}")
-                        stopSelf()
+                        Log.e("SweetData", "Core Error: ${e.message}")
                     }
                 }.start()
             }
         } catch (e: Exception) {
-            Log.e("SweetData", "VPN Setup Crash: ${e.message}")
-            stopSelf()
+            Log.e("SweetData", "Setup Crash: ${e.message}")
         }
     }
 
-    private fun generateVlessConfig(bug: String): String {
-        // Matches your VPS: Port 443, Security: none, Network: ws, Path: /sweetdata
+    private fun generateFullConfig(): String {
         return """
         {
           "log": { "loglevel": "warning" },
-          "outbounds": [{
-            "protocol": "vless",
-            "settings": {
-              "vnext": [{
-                "address": "$vpsIp", 
-                "port": 443, 
-                "users": [{
-                  "id": "$vlessUuid", 
-                  "encryption": "none"
+          "inbounds": [{
+            "port": 10808,
+            "protocol": "socks",
+            "settings": { "auth": "noauth", "udp": true }
+          }],
+          "outbounds": [
+            {
+              "protocol": "vless",
+              "settings": {
+                "vnext": [{
+                  "address": "$vpsIp",
+                  "port": 443,
+                  "users": [{ "id": "$vlessUuid", "encryption": "none" }]
                 }]
-              }]
+              },
+              "streamSettings": {
+                "network": "ws",
+                "security": "none",
+                "wsSettings": {
+                  "path": "/sweetdata",
+                  "headers": { "Host": "$SNI_BUG" }
+                }
+              },
+              "tag": "proxy"
             },
-            "streamSettings": {
-              "network": "ws",
-              "security": "none", 
-              "wsSettings": { 
-                "path": "/sweetdata", 
-                "headers": { 
-                  "Host": "$bug"
-                } 
-              }
-            }
-          }]
+            { "protocol": "freedom", "tag": "direct" }
+          ],
+          "routing": {
+            "domainStrategy": "AsIs",
+            "rules": [{ "type": "field", "outboundTag": "proxy", "port": "0-65535" }]
+          }
         }
         """.trimIndent()
     }
