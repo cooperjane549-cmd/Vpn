@@ -21,8 +21,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.ads.*
-import com.google.android.gms.ads.interstitial.InterstitialAd
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.firebase.auth.FirebaseAuth
@@ -36,7 +34,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvBalance: TextView
     private lateinit var toggleNetwork: MaterialButtonToggleGroup
     
-    private var mInterstitialAd: InterstitialAd? = null
     private var isVpnRunning = false
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
@@ -45,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private val PREFS_NAME = "SweetDataPrefs"
     private val handler = Handler(Looper.getMainLooper())
     
+    // Background task to keep the UI fresh (Minutes left)
     private val timeUpdater = object : Runnable {
         override fun run() {
             updateBalanceUI()
@@ -57,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize Firebase & Google Auth
+        // 1. Initialize Firebase & Google Auth
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
@@ -67,22 +65,28 @@ class MainActivity : AppCompatActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // UI Bindings
+        // 2. UI Bindings
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // Network Selection
+        // 3. Network Selection Logic (Green, Red, Blue)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val internalName = if (checkedId == R.id.btnSafaricom) "Safaricom" else "Airtel"
-                prefs.edit().putString("selected_network", internalName).apply()
+                val colorCode = when (checkedId) {
+                    R.id.btnSafaricom -> "GREEN"
+                    R.id.btnAirtel -> "RED"
+                    R.id.btnTelkom -> "BLUE"
+                    else -> "GREEN"
+                }
+                prefs.edit().putString("selected_network_color", colorCode).apply()
+                Toast.makeText(this, "Network set to $colorCode", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Navigation
+        // 4. Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -91,12 +95,16 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // Connection Trigger
+        // 5. Connection Trigger (ADS REMOVED)
         btnConnect.setOnClickListener {
-            if (isVpnRunning) stopVpn() else validateAndConnect()
+            if (isVpnRunning) {
+                stopVpn()
+            } else {
+                validateAndConnect()
+            }
         }
 
-        // Auth Gate
+        // 6. Auth Check
         val user = auth.currentUser
         if (user == null || user.isAnonymous) {
             signInWithGoogle()
@@ -105,100 +113,57 @@ class MainActivity : AppCompatActivity() {
             syncTimeFromFirebase()
         }
 
-        // Ads Initialization
+        // 7. Initialize Ads (Only for Banner if you have one, Interstitial removed from connect flow)
         MobileAds.initialize(this) {}
-        loadInterstitial()
         handler.post(timeUpdater)
-    }
-
-    private fun runSafetyChecks() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("terms_accepted", false)) {
-            AlertDialog.Builder(this)
-                .setTitle("Terms of Service")
-                .setMessage("By using SweetData VPN, you agree that we are not responsible for any data loss. Use at your own risk.")
-                .setCancelable(false)
-                .setPositiveButton("Accept") { _, _ -> 
-                    prefs.edit().putBoolean("terms_accepted", true).apply()
-                    checkBatteryExemption() 
-                }
-                .setNegativeButton("Exit") { _, _ -> finish() }
-                .show()
-        } else {
-            checkBatteryExemption()
-        }
-    }
-
-    private fun checkBatteryExemption() {
-        val pm = getSystemService(POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            AlertDialog.Builder(this)
-                .setTitle("Keep SweetData Alive")
-                .setMessage("Please allow SweetData VPN to run without battery restrictions to prevent disconnection.")
-                .setCancelable(false)
-                .setPositiveButton("Go to Settings") { _, _ ->
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                }
-                .show()
-        }
     }
 
     private fun validateAndConnect() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
         
+        // Only allow connection if user has active time
         if (System.currentTimeMillis() < expiry) {
-            val intent = android.net.VpnService.prepare(this)
-            if (intent != null) {
-                startActivityForResult(intent, 102)
+            val vpnIntent = android.net.VpnService.prepare(this)
+            if (vpnIntent != null) {
+                startActivityForResult(vpnIntent, 102)
             } else {
-                startVpnFlow()
+                executeVpnStart()
             }
         } else {
             Toast.makeText(this, "ACCESS EXPIRED! Renew in STORE or TASKS", Toast.LENGTH_LONG).show()
         }
     }
 
-    // --- THE SEQUENTIAL ADS + VPN START LOGIC ---
-    private fun startVpnFlow() {
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    // Start VPN only after ad is closed
-                    executeVpnStart()
-                    mInterstitialAd = null // Clear used ad
-                    loadInterstitial() // Pre-load next
-                }
-
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    executeVpnStart()
-                }
-            }
-            mInterstitialAd?.show(this)
-        } else {
-            // No ad ready, start immediately
-            executeVpnStart()
-        }
-    }
-
     private fun executeVpnStart() {
         try {
-            startService(Intent(this, MyVpnService::class.java))
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
+
+            val intent = Intent(this, MyVpnService::class.java)
+            intent.putExtra("NETWORK_COLOR", color) // Pass the color to the Service
+            
+            startService(intent)
+            
             isVpnRunning = true
             btnConnect.text = "STOP"
-            tvStatus.text = "CONNECTING..."
+            btnConnect.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
+            tvStatus.text = "CONNECTING ($color)..."
         } catch (e: Exception) {
-            Toast.makeText(this, "Failed to start engine", Toast.LENGTH_SHORT).show()
+            Log.e("SweetData", "Start Error: ${e.message}")
+            Toast.makeText(this, "Engine failed to start", Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 102 && resultCode == RESULT_OK) {
-            startVpnFlow()
-        }
+    private fun stopVpn() {
+        val intent = Intent(this, MyVpnService::class.java)
+        intent.action = "STOP"
+        startService(intent)
+        
+        isVpnRunning = false
+        btnConnect.text = "CONNECT"
+        btnConnect.setBackgroundColor(ContextCompat.getColor(this, R.color.primaryColor)) // Use your app primary color
+        updateBalanceUI()
     }
 
     private fun syncTimeFromFirebase() {
@@ -233,29 +198,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadInterstitial() {
-        val adRequest = AdRequest.Builder().build()
-        // Ad Unit ID: ca-app-pub-2344867686796379/4612206920
-        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
-            object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    mInterstitialAd = ad
+    // Safety and Permissions checks
+    private fun runSafetyChecks() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("terms_accepted", false)) {
+            AlertDialog.Builder(this)
+                .setTitle("Terms of Service")
+                .setMessage("By using SweetData VPN, you agree to our Terms. We are not responsible for data loss.")
+                .setCancelable(false)
+                .setPositiveButton("Accept") { _, _ -> 
+                    prefs.edit().putBoolean("terms_accepted", true).apply()
+                    checkBatteryExemption() 
                 }
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    mInterstitialAd = null
-                    // Retry loading after 20 seconds
-                    handler.postDelayed({ loadInterstitial() }, 20000)
-                }
-            })
+                .setNegativeButton("Exit") { _, _ -> finish() }
+                .show()
+        } else {
+            checkBatteryExemption()
+        }
     }
 
-    private fun stopVpn() {
-        startService(Intent(this, MyVpnService::class.java).apply { action = "STOP" })
-        isVpnRunning = false
-        btnConnect.text = "CONNECT"
-        updateBalanceUI()
+    private fun checkBatteryExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                intent.data = Uri.parse("package:$packageName")
+                startActivity(intent)
+            } catch (e: Exception) {}
+        }
     }
 
+    // Google Auth Logic
     private fun signInWithGoogle() {
         val signInIntent = googleSignInClient.signInIntent
         googleLauncher.launch(signInIntent)
@@ -278,6 +251,13 @@ class MainActivity : AppCompatActivity() {
                 runSafetyChecks()
                 syncTimeFromFirebase()
             }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 102 && resultCode == RESULT_OK) {
+            executeVpnStart()
         }
     }
 
