@@ -46,7 +46,7 @@ class MyVpnService : VpnService() {
 
             val builder = Builder()
                 .setSession("SweetData VPN")
-                .setMtu(1350)
+                .setMtu(1280)
                 .addAddress("172.19.0.1", 30)
                 .addDnsServer("1.1.1.1") 
                 .addRoute("0.0.0.0", 0)
@@ -84,7 +84,7 @@ class MyVpnService : VpnService() {
             "settings": {
               "vnext": [{
                 "address": "$vpsIp",
-                "port": 443,
+                "port": 80,
                 "users": [{ "id": "$vlessUuid", "encryption": "none" }]
               }]
             },
