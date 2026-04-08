@@ -16,8 +16,6 @@ class MyVpnService : VpnService() {
     
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
-    
-    // THE BUG: Using the free site from your screenshot
     private val SNI_BUG = "biladata.safaricom.co.ke"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -34,15 +32,13 @@ class MyVpnService : VpnService() {
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
             val builder = Builder()
-                .setSession("SweetData VPN")
-                .setMtu(1400) // Lower MTU is better for Safaricom signal stability
+                .setSession("SweetData")
+                .setMtu(1350) // Reduced MTU to prevent packet fragmentation on 4G
                 .addAddress("172.19.0.1", 30)
-                .addDnsServer("8.8.8.8") 
-                .addDnsServer("1.1.1.1")
+                .addDnsServer("1.1.1.1") 
                 .addRoute("0.0.0.0", 0)
                 .addDisallowedApplication(packageName)
             
-            // Bypass VPS IP so the core can reach the server
             builder.addRoute(vpsIp, 32)
 
             vpnInterface = builder.establish()
@@ -51,7 +47,31 @@ class MyVpnService : VpnService() {
                 val fd = vpnInterface!!.fd
                 Thread {
                     try {
-                        val config = generateV2rayConfig()
+                        val config = """
+                        {
+                          "log": { "loglevel": "warning" },
+                          "outbounds": [{
+                            "protocol": "vless",
+                            "settings": {
+                              "vnext": [{
+                                "address": "$vpsIp",
+                                "port": 443,
+                                "users": [{ "id": "$vlessUuid", "encryption": "none" }]
+                              }]
+                            },
+                            "streamSettings": {
+                              "network": "ws",
+                              "security": "none",
+                              "wsSettings": { 
+                                "path": "/sweetdata",
+                                "headers": { "Host": "$SNI_BUG" }
+                              },
+                              "sockopt": { "tcpFastOpen": true }
+                            }
+                          }]
+                        }
+                        """.trimIndent()
+                        
                         coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
                             override fun onEmitStatus(status: Long, msg: String?): Long = 0
                             override fun startup(): Long { isRunning = true; return 0 }
@@ -59,42 +79,13 @@ class MyVpnService : VpnService() {
                         })
                         coreController?.startLoop(config, fd)
                     } catch (e: Exception) {
-                        Log.e("SweetData", "Core Loop Error: ${e.message}")
+                        Log.e("SweetData", "Core error: " + e.message)
                     }
                 }.start()
             }
         } catch (e: Exception) {
-            Log.e("SweetData", "VPN Setup Crash: ${e.message}")
+            Log.e("SweetData", "Startup failed: " + e.message)
         }
-    }
-
-    private fun generateV2rayConfig(): String {
-        return """
-        {
-          "log": { "loglevel": "warning" },
-          "outbounds": [{
-            "protocol": "vless",
-            "settings": {
-              "vnext": [{
-                "address": "$vpsIp",
-                "port": 443,
-                "users": [{ "id": "$vlessUuid", "encryption": "none" }]
-              }]
-            },
-            "streamSettings": {
-              "network": "ws",
-              "security": "none",
-              "wsSettings": {
-                "path": "/sweetdata",
-                "headers": {
-                  "Host": "$SNI_BUG",
-                  "User-Agent": "Mozilla/5.0 (Linux; Android 10; Mobile) Chrome/120.0.0.0"
-                }
-              }
-            }
-          }]
-        }
-        """.trimIndent()
     }
 
     private fun stopVpn() {
@@ -103,10 +94,5 @@ class MyVpnService : VpnService() {
         vpnInterface?.close()
         vpnInterface = null
         stopSelf()
-    }
-
-    override fun onDestroy() {
-        stopVpn()
-        super.onDestroy()
     }
 }
