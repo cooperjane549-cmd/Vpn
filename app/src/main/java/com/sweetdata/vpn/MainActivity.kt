@@ -9,6 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
+import android.graphics.Color
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,7 +44,6 @@ class MainActivity : AppCompatActivity() {
     private val PREFS_NAME = "SweetDataPrefs"
     private val handler = Handler(Looper.getMainLooper())
     
-    // Background task to keep the UI fresh (Minutes left)
     private val timeUpdater = object : Runnable {
         override fun run() {
             updateBalanceUI()
@@ -55,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Initialize Firebase & Google Auth
+        // Firebase & Google Auth
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
@@ -65,28 +66,28 @@ class MainActivity : AppCompatActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // 2. UI Bindings
+        // UI Bindings
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // 3. Network Selection Logic (Green, Red, Blue)
+        // Network Selection (Kevin, Sherwin, Blue)
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val colorCode = when (checkedId) {
-                    R.id.btnSafaricom -> "GREEN"
-                    R.id.btnAirtel -> "RED"
-                    R.id.btnTelkom -> "BLUE"
+                    R.id.btnSafaricom -> "GREEN" // Kevin
+                    R.id.btnAirtel -> "RED"      // Sherwin
+                    R.id.btnTelkom -> "BLUE"     // Blue
                     else -> "GREEN"
                 }
                 prefs.edit().putString("selected_network_color", colorCode).apply()
-                Toast.makeText(this, "Network set to $colorCode", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Mode: $colorCode", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 4. Navigation
+        // Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -95,7 +96,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // 5. Connection Trigger (ADS REMOVED)
+        // Connect Button
         btnConnect.setOnClickListener {
             if (isVpnRunning) {
                 stopVpn()
@@ -104,7 +105,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 6. Auth Check
+        // Auth Gate
         val user = auth.currentUser
         if (user == null || user.isAnonymous) {
             signInWithGoogle()
@@ -113,7 +114,6 @@ class MainActivity : AppCompatActivity() {
             syncTimeFromFirebase()
         }
 
-        // 7. Initialize Ads (Only for Banner if you have one, Interstitial removed from connect flow)
         MobileAds.initialize(this) {}
         handler.post(timeUpdater)
     }
@@ -122,7 +122,6 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
         
-        // Only allow connection if user has active time
         if (System.currentTimeMillis() < expiry) {
             val vpnIntent = android.net.VpnService.prepare(this)
             if (vpnIntent != null) {
@@ -131,7 +130,7 @@ class MainActivity : AppCompatActivity() {
                 executeVpnStart()
             }
         } else {
-            Toast.makeText(this, "ACCESS EXPIRED! Renew in STORE or TASKS", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "ACCESS EXPIRED!", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -141,17 +140,18 @@ class MainActivity : AppCompatActivity() {
             val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
 
             val intent = Intent(this, MyVpnService::class.java)
-            intent.putExtra("NETWORK_COLOR", color) // Pass the color to the Service
+            intent.putExtra("NETWORK_COLOR", color)
             
             startService(intent)
             
             isVpnRunning = true
             btnConnect.text = "STOP"
-            btnConnect.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
+            // Keeping your Red Color
+            btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
             tvStatus.text = "CONNECTING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
-            Toast.makeText(this, "Engine failed to start", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Engine failed", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -162,7 +162,8 @@ class MainActivity : AppCompatActivity() {
         
         isVpnRunning = false
         btnConnect.text = "CONNECT"
-        btnConnect.setBackgroundColor(ContextCompat.getColor(this, R.color.primaryColor)) // Use your app primary color
+        // Return to your Red Color
+        btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
         updateBalanceUI()
     }
 
@@ -198,13 +199,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Safety and Permissions checks
     private fun runSafetyChecks() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean("terms_accepted", false)) {
             AlertDialog.Builder(this)
                 .setTitle("Terms of Service")
-                .setMessage("By using SweetData VPN, you agree to our Terms. We are not responsible for data loss.")
+                .setMessage("Use at your own risk.")
                 .setCancelable(false)
                 .setPositiveButton("Accept") { _, _ -> 
                     prefs.edit().putBoolean("terms_accepted", true).apply()
@@ -228,7 +228,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Google Auth Logic
     private fun signInWithGoogle() {
         val signInIntent = googleSignInClient.signInIntent
         googleLauncher.launch(signInIntent)
