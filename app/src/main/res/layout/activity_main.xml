@@ -59,7 +59,7 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Blue"
+            android:text="Shannel"
             android:textColor="#FFFFFF"
             app:strokeColor="#2196F3" /> </com.google.android.material.button.MaterialButtonToggleGroup>
 
