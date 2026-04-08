@@ -23,6 +23,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.ads.*
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.firebase.auth.FirebaseAuth
@@ -36,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvBalance: TextView
     private lateinit var toggleNetwork: MaterialButtonToggleGroup
     
+    private var mInterstitialAd: InterstitialAd? = null
     private var isVpnRunning = false
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
@@ -56,7 +59,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Firebase & Google Auth
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
@@ -66,28 +68,29 @@ class MainActivity : AppCompatActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // UI Bindings
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // Network Selection (Kevin, Sherwin, Blue)
+        // Set default selection to avoid crash if user doesn't tap anything
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getString("selected_network_color", null) == null) {
+            prefs.edit().putString("selected_network_color", "GREEN").apply()
+        }
+
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
-                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val colorCode = when (checkedId) {
-                    R.id.btnSafaricom -> "GREEN" // Kevin
-                    R.id.btnAirtel -> "RED"      // Sherwin
-                    R.id.btnTelkom -> "BLUE"     // Blue
+                    R.id.btnSafaricom -> "GREEN"
+                    R.id.btnAirtel -> "RED"
+                    R.id.btnTelkom -> "BLUE"
                     else -> "GREEN"
                 }
                 prefs.edit().putString("selected_network_color", colorCode).apply()
-                Toast.makeText(this, "Mode: $colorCode", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Navigation
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -96,16 +99,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SubscriptionActivity::class.java))
         }
 
-        // Connect Button
         btnConnect.setOnClickListener {
-            if (isVpnRunning) {
-                stopVpn()
-            } else {
-                validateAndConnect()
-            }
+            if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
-        // Auth Gate
         val user = auth.currentUser
         if (user == null || user.isAnonymous) {
             signInWithGoogle()
@@ -115,7 +112,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         MobileAds.initialize(this) {}
+        loadInterstitial()
         handler.post(timeUpdater)
+    }
+
+    private fun loadInterstitial() {
+        val adRequest = AdRequest.Builder().build()
+        // Your Ad Unit ID
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    mInterstitialAd = ad
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    mInterstitialAd = null
+                    handler.postDelayed({ loadInterstitial() }, 20000)
+                }
+            })
     }
 
     private fun validateAndConnect() {
@@ -127,10 +140,28 @@ class MainActivity : AppCompatActivity() {
             if (vpnIntent != null) {
                 startActivityForResult(vpnIntent, 102)
             } else {
-                executeVpnStart()
+                startVpnFlow()
             }
         } else {
             Toast.makeText(this, "ACCESS EXPIRED!", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun startVpnFlow() {
+        if (mInterstitialAd != null) {
+            mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    executeVpnStart()
+                    mInterstitialAd = null
+                    loadInterstitial() 
+                }
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    executeVpnStart()
+                }
+            }
+            mInterstitialAd?.show(this)
+        } else {
+            executeVpnStart()
         }
     }
 
@@ -146,23 +177,18 @@ class MainActivity : AppCompatActivity() {
             
             isVpnRunning = true
             btnConnect.text = "STOP"
-            // Keeping your Red Color
             btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
             tvStatus.text = "CONNECTING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
-            Toast.makeText(this, "Engine failed", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun stopVpn() {
-        val intent = Intent(this, MyVpnService::class.java)
-        intent.action = "STOP"
+        val intent = Intent(this, MyVpnService::class.java).apply { action = "STOP" }
         startService(intent)
-        
         isVpnRunning = false
         btnConnect.text = "CONNECT"
-        // Return to your Red Color
         btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
         updateBalanceUI()
     }
@@ -256,7 +282,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 102 && resultCode == RESULT_OK) {
-            executeVpnStart()
+            startVpnFlow()
         }
     }
 
