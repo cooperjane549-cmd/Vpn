@@ -79,7 +79,7 @@ class MyVpnService : VpnService() {
         }
     }
 
-    private fun generateConfig(host: String): String {
+        private fun generateConfig(host: String): String {
         return """
         {
           "outbounds": [{
@@ -88,7 +88,11 @@ class MyVpnService : VpnService() {
               "vnext": [{
                 "address": "$vpsIp",
                 "port": 80,
-                "users": [{ "id": "$vlessUuid", "encryption": "none" }]
+                "users": [{ 
+                    "id": "$vlessUuid", 
+                    "encryption": "none",
+                    "level": 0
+                }]
               }]
             },
             "streamSettings": {
@@ -105,7 +109,8 @@ class MyVpnService : VpnService() {
           }]
         }
         """.trimIndent()
-    }
+        }
+        
 
     private fun stopVpn() {
         isRunning = false
