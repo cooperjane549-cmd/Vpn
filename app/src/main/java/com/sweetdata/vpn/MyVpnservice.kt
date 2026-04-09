@@ -18,7 +18,7 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // VPS Configuration - SweetData Official
+    // Fixed VPS Details
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
     private val CHANNEL_ID = "sweetdata_vpn_channel"
@@ -31,14 +31,15 @@ class MyVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        // 1. CRITICAL CRASH PROTECTION: Start Foreground Notification IMMEDIATELY
+        // 1. CRITICAL: Start Foreground Notification IMMEDIATELY
         startServiceForeground()
 
-        // 2. Get network selection from MainActivity
-        val selectedColor = intent?.getStringExtra("NETWORK_COLOR") ?: "GREEN"
+        // 2. FETCH DYNAMIC DATA FROM INTENT (Passed from MainActivity)
+        val bugHost = intent?.getStringExtra("BUG_HOST") ?: "www.airtelkenya.com"
         
         if (!isRunning) {
-            setupAndStartVpn(selectedColor)
+            // Run setup in a background thread to keep the service responsive
+            Thread { setupAndStartVpn(bugHost) }.start()
         }
         
         return START_STICKY
@@ -65,27 +66,18 @@ class MyVpnService : VpnService() {
         startForeground(1, notification)
     }
 
-    private fun setupAndStartVpn(color: String) {
+    private fun setupAndStartVpn(bugHost: String) {
         try {
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
-
-            // Bug Selection Logic - Based on your carrier portal screenshot
-            val bugHost = when (color.uppercase()) {
-                "RED" -> "www.airtelkenya.com"    // Airtel (Verified)
-                "BLUE" -> "stats.mwalimuplus.com"  // Telkom
-                "GREEN" -> "biladata.safaricom.co.ke" // Safaricom
-                else -> "biladata.safaricom.co.ke"
-            }
 
             val builder = Builder()
                 .setSession("SweetData VPN")
                 .setMtu(1280) 
                 .addAddress("172.19.0.1", 30)
-                // STABILITY FIX: Dual DNS to prevent "No Internet" status
                 .addDnsServer("8.8.8.8") 
                 .addDnsServer("1.1.1.1")
                 .addRoute("0.0.0.0", 0) 
-                // ROUTING FIX: Bypass the app and the VPS to prevent loops/data loss
+                // ROUTING FIX: Critical for "No Internet" issues
                 .addDisallowedApplication(packageName) 
                 .addRoute(vpsIp, 32) 
 
@@ -93,19 +85,17 @@ class MyVpnService : VpnService() {
             
             if (vpnInterface != null) {
                 val fd = vpnInterface!!.fd
-                Thread {
-                    try {
-                        val config = generateXrayConfig(bugHost)
-                        coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
-                            override fun onEmitStatus(s: Long, m: String?): Long = 0
-                            override fun startup(): Long { isRunning = true; return 0 }
-                            override fun shutdown(): Long { isRunning = false; return 0 }
-                        })
-                        coreController?.startLoop(config, fd)
-                    } catch (e: Exception) {
-                        Log.e("SweetData", "Core Loop Error: ${e.message}")
-                    }
-                }.start()
+                try {
+                    val config = generateXrayConfig(bugHost)
+                    coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
+                        override fun onEmitStatus(s: Long, m: String?): Long = 0
+                        override fun startup(): Long { isRunning = true; return 0 }
+                        override fun shutdown(): Long { isRunning = false; return 0 }
+                    })
+                    coreController?.startLoop(config, fd)
+                } catch (e: Exception) {
+                    Log.e("SweetData", "Core Loop Error: ${e.message}")
+                }
             }
         } catch (e: Exception) {
             Log.e("SweetData", "VPN Setup Crash: ${e.message}")
