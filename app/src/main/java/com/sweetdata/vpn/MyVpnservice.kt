@@ -18,7 +18,7 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // Fixed VPS Details
+    // VPS Configuration
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
     private val CHANNEL_ID = "sweetdata_vpn_channel"
@@ -31,14 +31,14 @@ class MyVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        // 1. CRITICAL: Start Foreground Notification IMMEDIATELY
+        // 1. FOREGROUND PROTECT: Prevents Android from killing the service
         startServiceForeground()
 
-        // 2. FETCH DYNAMIC DATA FROM INTENT (Passed from MainActivity)
-        val bugHost = intent?.getStringExtra("BUG_HOST") ?: "www.airtelkenya.com"
+        // 2. FETCH CLOUD BUG: Get the string passed from MainActivity
+        val bugHost = intent?.getStringExtra("BUG_HOST") ?: "biladata.safaricom.co.ke"
         
         if (!isRunning) {
-            // Run setup in a background thread to keep the service responsive
+            // Run in a thread so the UI doesn't freeze
             Thread { setupAndStartVpn(bugHost) }.start()
         }
         
@@ -58,7 +58,7 @@ class MyVpnService : VpnService() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("SweetData VPN is Active")
-            .setContentText("Your connection is being optimized...")
+            .setContentText("Optimizing your network path...")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
             .build()
@@ -77,25 +77,26 @@ class MyVpnService : VpnService() {
                 .addDnsServer("8.8.8.8") 
                 .addDnsServer("1.1.1.1")
                 .addRoute("0.0.0.0", 0) 
-                // ROUTING FIX: Critical for "No Internet" issues
+                
+                // NO INTERNET FIX:
+                // 1. Don't tunnel the VPN app itself
                 .addDisallowedApplication(packageName) 
+                // 2. Bypass the VPS IP so the core can reach the server
                 .addRoute(vpsIp, 32) 
 
             vpnInterface = builder.establish()
             
             if (vpnInterface != null) {
                 val fd = vpnInterface!!.fd
-                try {
-                    val config = generateXrayConfig(bugHost)
-                    coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
-                        override fun onEmitStatus(s: Long, m: String?): Long = 0
-                        override fun startup(): Long { isRunning = true; return 0 }
-                        override fun shutdown(): Long { isRunning = false; return 0 }
-                    })
-                    coreController?.startLoop(config, fd)
-                } catch (e: Exception) {
-                    Log.e("SweetData", "Core Loop Error: ${e.message}")
-                }
+                val config = generateXrayConfig(bugHost)
+                
+                coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
+                    override fun onEmitStatus(s: Long, m: String?): Long = 0
+                    override fun startup(): Long { isRunning = true; return 0 }
+                    override fun shutdown(): Long { isRunning = false; return 0 }
+                })
+                
+                coreController?.startLoop(config, fd)
             }
         } catch (e: Exception) {
             Log.e("SweetData", "VPN Setup Crash: ${e.message}")
