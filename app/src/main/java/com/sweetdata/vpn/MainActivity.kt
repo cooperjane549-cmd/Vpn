@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var database: DatabaseReference
     private lateinit var googleSignInClient: GoogleSignInClient
     
-    // --- FIREBASE BUG VARIABLES ---
+    // --- FIREBASE BUG VARIABLES (Added) ---
     private var airtelBug = "www.airtelkenya.com"
     private var safaricomBug = "biladata.safaricom.co.ke"
     private var telkomBug = "www.telkom.co.ke"
@@ -70,24 +70,30 @@ class MainActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
-        // Start listening for dynamic bugs from Firebase Console
+        // --- START BUG LISTENER (Added) ---
         listenForBugUpdates()
+        
+        // Safety check for Web Client ID
+        val clientId = try {
+            getString(R.string.default_web_client_id)
+        } catch (e: Exception) {
+            Log.e("SweetData", "Missing Web Client ID in strings.xml")
+            ""
+        }
 
-        // Google Sign-In Setup
-        val clientId = try { getString(R.string.default_web_client_id) } catch (e: Exception) { "" }
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(clientId)
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // UI Initialization
         btnConnect = findViewById(R.id.btnConnect)
         tvStatus = findViewById(R.id.tvStatus)
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        
         if (prefs.getString("selected_network_color", null) == null) {
             prefs.edit().putString("selected_network_color", "GREEN").apply()
         }
@@ -104,11 +110,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // --- NAVIGATION BUTTONS (Restored) ---
+        findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
+            startActivity(Intent(this, TasksActivity::class.java))
+        }
+
+        findViewById<MaterialButton>(R.id.btnStore).setOnClickListener {
+            startActivity(Intent(this, SubscriptionActivity::class.java))
+        }
+
         btnConnect.setOnClickListener {
             if (isVpnRunning) stopVpn() else validateAndConnect()
         }
 
-        // Auth Check
         val user = auth.currentUser
         if (user == null) {
             signInWithGoogle()
@@ -122,7 +136,7 @@ class MainActivity : AppCompatActivity() {
         handler.post(timeUpdater)
     }
 
-    // --- NEW: LISTEN FOR CLOUD BUG UPDATES ---
+    // --- NEW: CLOUD SYNC LOGIC ---
     private fun listenForBugUpdates() {
         database.child("settings").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -131,10 +145,20 @@ class MainActivity : AppCompatActivity() {
                 telkomBug = snapshot.child("telkom_bug").getValue(String::class.java) ?: telkomBug
                 Log.d("SweetData", "Bugs Synced: $airtelBug | $safaricomBug | $telkomBug")
             }
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("SweetData", "Cloud Sync Failed: ${error.message}")
-            }
+            override fun onCancelled(error: DatabaseError) {}
         })
+    }
+
+    private fun loadInterstitial() {
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    mInterstitialAd = null
+                    handler.postDelayed({ loadInterstitial() }, 30000)
+                }
+            })
     }
 
     private fun validateAndConnect() {
@@ -176,7 +200,7 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
 
-            // SELECT BUG BASED ON UI CHOICE
+            // LINK: Pick the real bug from Firebase Sync
             val finalBugHost = when(color.uppercase()) {
                 "RED" -> airtelBug
                 "BLUE" -> telkomBug
@@ -186,7 +210,7 @@ class MainActivity : AppCompatActivity() {
 
             val intent = Intent(this, MyVpnService::class.java)
             intent.putExtra("NETWORK_COLOR", color) 
-            intent.putExtra("BUG_HOST", finalBugHost) // Send dynamic bug to service
+            intent.putExtra("BUG_HOST", finalBugHost) // Send dynamic host to service
             
             ContextCompat.startForegroundService(this, intent)
             
@@ -196,6 +220,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.text = "TUNNELING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
+            Toast.makeText(this, "Connect Error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -206,9 +231,9 @@ class MainActivity : AppCompatActivity() {
         btnConnect.text = "CONNECT"
         btnConnect.setBackgroundColor(Color.parseColor("#FF0033")) 
         tvStatus.text = "DISCONNECTED"
+        updateBalanceUI()
     }
 
-    // --- REMAINING HELPER FUNCTIONS (Sync, Ads, Battery, etc.) ---
     private fun syncTimeFromFirebase() {
         val userId = auth.currentUser?.uid ?: return
         database.child("users").child(userId).child("expiry_time")
@@ -241,21 +266,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadInterstitial() {
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
-            object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
-                override fun onAdFailedToLoad(error: LoadAdError) { mInterstitialAd = null }
-            })
-    }
-
     private fun runSafetyChecks() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean("terms_accepted", false)) {
             AlertDialog.Builder(this)
                 .setTitle("SweetData VPN")
-                .setMessage("Terms of Service Acceptance Required.")
+                .setMessage("By using this app, you agree that SweetData is not liable for data loss or network interruptions.")
                 .setCancelable(false)
                 .setPositiveButton("Accept") { _, _ -> 
                     prefs.edit().putBoolean("terms_accepted", true).apply()
@@ -283,7 +299,9 @@ class MainActivity : AppCompatActivity() {
         try {
             val signInIntent = googleSignInClient.signInIntent
             googleLauncher.launch(signInIntent)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            Log.e("SweetData", "Auth Launch Error: ${e.message}")
+        }
     }
 
     private val googleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -292,7 +310,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 val account = task.getResult(ApiException::class.java)!!
                 firebaseAuthWithGoogle(account.idToken!!)
-            } catch (e: ApiException) {}
+            } catch (e: ApiException) { 
+                Log.e("SweetData", "Google Sign-In Fail")
+            }
         }
     }
 
