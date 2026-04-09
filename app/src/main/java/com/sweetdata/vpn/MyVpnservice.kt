@@ -1,9 +1,14 @@
 package com.sweetdata.vpn
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import libv2ray.Libv2ray
 import libv2ray.CoreController
 import libv2ray.CoreCallbackHandler
@@ -21,7 +26,7 @@ class MyVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
-        // FIX: Match the key from MainActivity ("NETWORK_COLOR")
+        // Matches the "NETWORK_COLOR" sent from your MainActivity
         val selectedColor = intent?.getStringExtra("NETWORK_COLOR") ?: "GREEN"
 
         if (action == "STOP") {
@@ -30,18 +35,36 @@ class MyVpnService : VpnService() {
         }
         
         if (!isRunning) {
+            startForegroundNotification()
             setupAndStartVpn(selectedColor)
         }
         return START_STICKY
+    }
+
+    private fun startForegroundNotification() {
+        val channelId = "sweetdata_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "SweetData VPN Service", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("SweetData VPN")
+            .setContentText("Protecting your connection...")
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .build()
+
+        startForeground(1, notification)
     }
 
     private fun setupAndStartVpn(color: String) {
         try {
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
-            // Select the bug based on the color sent from UI
+            // UPDATED: Airtel Bug set to match your working portal screenshot
             val bugHost = when (color.uppercase()) {
-                "RED" -> "africanstorybook.org"    // Sherwin (Airtel)
+                "RED" -> "www.airtelkenya.com"    // Sherwin (Airtel)
                 "BLUE" -> "stats.mwalimuplus.com"  // Blue (Telkom)
                 "GREEN" -> "biladata.safaricom.co.ke" // Kevin (Safaricom)
                 else -> "biladata.safaricom.co.ke"
@@ -49,12 +72,12 @@ class MyVpnService : VpnService() {
 
             val builder = Builder()
                 .setSession("SweetData VPN")
-                .setMtu(1280) // 1280 is best for 4G stability
+                .setMtu(1280) 
                 .addAddress("172.19.0.1", 30)
-                .addDnsServer("1.1.1.1") 
+                .addDnsServer("8.8.8.8") // Google DNS for better reliability
                 .addRoute("0.0.0.0", 0)
                 .addDisallowedApplication(packageName)
-                .addRoute(vpsIp, 32) // Keep VPS traffic outside the tunnel
+                .addRoute(vpsIp, 32) 
 
             vpnInterface = builder.establish()
             
@@ -79,7 +102,7 @@ class MyVpnService : VpnService() {
         }
     }
 
-        private fun generateConfig(host: String): String {
+    private fun generateConfig(host: String): String {
         return """
         {
           "outbounds": [{
@@ -102,21 +125,21 @@ class MyVpnService : VpnService() {
                 "path": "/sweetdata",
                 "headers": { 
                   "Host": "$host",
-                  "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
                 }
               }
             }
           }]
         }
         """.trimIndent()
-        }
-        
+    }
 
     private fun stopVpn() {
         isRunning = false
         coreController?.stopLoop()
         vpnInterface?.close()
         vpnInterface = null
+        stopForeground(true)
         stopSelf()
     }
 }
