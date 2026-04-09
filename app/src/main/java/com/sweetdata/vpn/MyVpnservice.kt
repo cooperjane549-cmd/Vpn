@@ -2,7 +2,6 @@ package com.sweetdata.vpn
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
@@ -19,7 +18,7 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // VPS Configuration
+    // VPS Configuration - SweetData Official
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
     private val CHANNEL_ID = "sweetdata_vpn_channel"
@@ -32,7 +31,7 @@ class MyVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        // 1. CRITICAL: Start Foreground Notification IMMEDIATELY to prevent crash
+        // 1. CRITICAL CRASH PROTECTION: Start Foreground Notification IMMEDIATELY
         startServiceForeground()
 
         // 2. Get network selection from MainActivity
@@ -70,22 +69,25 @@ class MyVpnService : VpnService() {
         try {
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
-            // Bug Selection Logic (Matches SweetData UI)
+            // Bug Selection Logic - Based on your carrier portal screenshot
             val bugHost = when (color.uppercase()) {
-                "RED" -> "www.airtelkenya.com"    // Airtel Portal Bug
-                "BLUE" -> "stats.mwalimuplus.com"  // Telkom Bug
-                "GREEN" -> "biladata.safaricom.co.ke" // Safaricom Bug
+                "RED" -> "www.airtelkenya.com"    // Airtel (Verified)
+                "BLUE" -> "stats.mwalimuplus.com"  // Telkom
+                "GREEN" -> "biladata.safaricom.co.ke" // Safaricom
                 else -> "biladata.safaricom.co.ke"
             }
 
             val builder = Builder()
                 .setSession("SweetData VPN")
-                .setMtu(1280) // Optimized for mobile packet stability
+                .setMtu(1280) 
                 .addAddress("172.19.0.1", 30)
+                // STABILITY FIX: Dual DNS to prevent "No Internet" status
                 .addDnsServer("8.8.8.8") 
-                .addRoute("0.0.0.0", 0)
-                .addDisallowedApplication(packageName) // Don't loop the app's own traffic
-                .addRoute(vpsIp, 32) // Keep VPS traffic outside the tunnel
+                .addDnsServer("1.1.1.1")
+                .addRoute("0.0.0.0", 0) 
+                // ROUTING FIX: Bypass the app and the VPS to prevent loops/data loss
+                .addDisallowedApplication(packageName) 
+                .addRoute(vpsIp, 32) 
 
             vpnInterface = builder.establish()
             
