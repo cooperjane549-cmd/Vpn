@@ -26,20 +26,28 @@ class MyVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
-        if (action == "STOP") {
+        // --- SYNC FIX: Match the STOP_SERVICE action from MainActivity ---
+        if (action == "STOP" || action == "STOP_SERVICE") {
             stopVpn()
             return START_NOT_STICKY
         }
 
-        // 1. FOREGROUND PROTECT: Prevents Android from killing the service
+        // 1. FOREGROUND PROTECT: Post notification IMMEDIATELY
+        // This is the most common reason for the "Connect" crash
         startServiceForeground()
 
         // 2. FETCH CLOUD BUG: Get the string passed from MainActivity
         val bugHost = intent?.getStringExtra("BUG_HOST") ?: "biladata.safaricom.co.ke"
         
         if (!isRunning) {
-            // Run in a thread so the UI doesn't freeze
-            Thread { setupAndStartVpn(bugHost) }.start()
+            // Run in a thread so the UI doesn't freeze or crash
+            Thread { 
+                try {
+                    setupAndStartVpn(bugHost) 
+                } catch (e: Exception) {
+                    Log.e("SweetData", "Core Thread Error: ${e.message}")
+                }
+            }.start()
         }
         
         return START_STICKY
@@ -53,7 +61,7 @@ class MyVpnService : VpnService() {
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager?.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -61,6 +69,7 @@ class MyVpnService : VpnService() {
             .setContentText("Optimizing your network path...")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
         startForeground(1, notification)
@@ -68,6 +77,7 @@ class MyVpnService : VpnService() {
 
     private fun setupAndStartVpn(bugHost: String) {
         try {
+            // Initializing environment for the AAR library
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
             val builder = Builder()
@@ -79,7 +89,7 @@ class MyVpnService : VpnService() {
                 .addRoute("0.0.0.0", 0) 
                 
                 // NO INTERNET FIX:
-                // 1. Don't tunnel the VPN app itself
+                // 1. Don't tunnel the VPN app itself to prevent loops
                 .addDisallowedApplication(packageName) 
                 // 2. Bypass the VPS IP so the core can reach the server
                 .addRoute(vpsIp, 32) 
@@ -97,6 +107,8 @@ class MyVpnService : VpnService() {
                 })
                 
                 coreController?.startLoop(config, fd)
+            } else {
+                Log.e("SweetData", "VPN Interface could not be established")
             }
         } catch (e: Exception) {
             Log.e("SweetData", "VPN Setup Crash: ${e.message}")
@@ -136,12 +148,22 @@ class MyVpnService : VpnService() {
     }
 
     private fun stopVpn() {
-        isRunning = false
-        coreController?.stopLoop()
-        vpnInterface?.close()
-        vpnInterface = null
-        stopForeground(true)
-        stopSelf()
+        try {
+            isRunning = false
+            coreController?.stopLoop()
+            vpnInterface?.close()
+            vpnInterface = null
+            
+            // Standardizing the foreground stop for all Android versions
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                stopForeground(true)
+            }
+            stopSelf()
+        } catch (e: Exception) {
+            Log.e("SweetData", "Error stopping service: ${e.message}")
+        }
     }
 
     override fun onDestroy() {
