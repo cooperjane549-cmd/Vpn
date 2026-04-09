@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var database: DatabaseReference
     private lateinit var googleSignInClient: GoogleSignInClient
     
-    // --- FIREBASE BUG VARIABLES (Added) ---
+    // --- FIREBASE BUG VARIABLES ---
     private var airtelBug = "www.airtelkenya.com"
     private var safaricomBug = "biladata.safaricom.co.ke"
     private var telkomBug = "www.telkom.co.ke"
@@ -70,15 +70,16 @@ class MainActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
-        // --- START BUG LISTENER (Added) ---
+        // --- START BUG LISTENER ---
         listenForBugUpdates()
         
-        // Safety check for Web Client ID
+        // Safety check for Web Client ID - Prevents crash if string is missing
         val clientId = try {
-            getString(R.string.default_web_client_id)
+            val id = getString(R.string.default_web_client_id)
+            if (id.isNullOrEmpty()) "placeholder_client_id" else id
         } catch (e: Exception) {
             Log.e("SweetData", "Missing Web Client ID in strings.xml")
-            ""
+            "placeholder_client_id"
         }
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -110,7 +111,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // --- NAVIGATION BUTTONS (Restored) ---
+        // --- NAVIGATION BUTTONS ---
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -136,7 +137,6 @@ class MainActivity : AppCompatActivity() {
         handler.post(timeUpdater)
     }
 
-    // --- NEW: CLOUD SYNC LOGIC ---
     private fun listenForBugUpdates() {
         database.child("settings").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -200,19 +200,20 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
 
-            // LINK: Pick the real bug from Firebase Sync
             val finalBugHost = when(color.uppercase()) {
                 "RED" -> airtelBug
                 "BLUE" -> telkomBug
-                "GREEN" -> safaricomBug
                 else -> safaricomBug
             }
 
-            val intent = Intent(this, MyVpnService::class.java)
-            intent.putExtra("NETWORK_COLOR", color) 
-            intent.putExtra("BUG_HOST", finalBugHost) // Send dynamic host to service
+            // --- CRASH FIX: Intent Optimization ---
+            val intent = Intent(this, MyVpnService::class.java).apply {
+                putExtra("NETWORK_COLOR", color)
+                putExtra("BUG_HOST", finalBugHost)
+            }
             
-            ContextCompat.startForegroundService(this, intent)
+            // Using applicationContext for foreground service stability
+            ContextCompat.startForegroundService(applicationContext, intent)
             
             isVpnRunning = true
             btnConnect.text = "STOP"
@@ -220,12 +221,15 @@ class MainActivity : AppCompatActivity() {
             tvStatus.text = "TUNNELING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
-            Toast.makeText(this, "Connect Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Connection Error", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun stopVpn() {
-        val intent = Intent(this, MyVpnService::class.java).apply { action = "STOP" }
+        // --- CRASH FIX: Standardized Action ---
+        val intent = Intent(this, MyVpnService::class.java).apply { 
+            action = "STOP_SERVICE" 
+        }
         startService(intent)
         isVpnRunning = false
         btnConnect.text = "CONNECT"
@@ -239,10 +243,12 @@ class MainActivity : AppCompatActivity() {
         database.child("users").child(userId).child("expiry_time")
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val expiry = snapshot.getValue(Long::class.java) ?: 0L
-                    getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-                        .putLong("expiry_time", expiry).apply()
-                    updateBalanceUI()
+                    if (!isFinishing && !isDestroyed) {
+                        val expiry = snapshot.getValue(Long::class.java) ?: 0L
+                        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                            .putLong("expiry_time", expiry).apply()
+                        updateBalanceUI()
+                    }
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
