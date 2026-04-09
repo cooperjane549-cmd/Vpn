@@ -19,40 +19,48 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // VPS Details
+    // VPS Configuration
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
+    private val CHANNEL_ID = "sweetdata_vpn_channel"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
-        // Matches the "NETWORK_COLOR" sent from your MainActivity
-        val selectedColor = intent?.getStringExtra("NETWORK_COLOR") ?: "GREEN"
-
         if (action == "STOP") {
             stopVpn()
             return START_NOT_STICKY
         }
+
+        // 1. CRITICAL: Start Foreground Notification IMMEDIATELY to prevent crash
+        startServiceForeground()
+
+        // 2. Get network selection from MainActivity
+        val selectedColor = intent?.getStringExtra("NETWORK_COLOR") ?: "GREEN"
         
         if (!isRunning) {
-            startForegroundNotification()
             setupAndStartVpn(selectedColor)
         }
+        
         return START_STICKY
     }
 
-    private fun startForegroundNotification() {
-        val channelId = "sweetdata_channel"
+    private fun startServiceForeground() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "SweetData VPN Service", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "SweetData Active Connection",
+                NotificationManager.IMPORTANCE_LOW
+            )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
 
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("SweetData VPN")
-            .setContentText("Protecting your connection...")
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("SweetData VPN is Active")
+            .setContentText("Your connection is being optimized...")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setOngoing(true)
             .build()
 
         startForeground(1, notification)
@@ -62,22 +70,22 @@ class MyVpnService : VpnService() {
         try {
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
-            // UPDATED: Airtel Bug set to match your working portal screenshot
+            // Bug Selection Logic (Matches SweetData UI)
             val bugHost = when (color.uppercase()) {
-                "RED" -> "www.airtelkenya.com"    // Sherwin (Airtel)
-                "BLUE" -> "stats.mwalimuplus.com"  // Blue (Telkom)
-                "GREEN" -> "biladata.safaricom.co.ke" // Kevin (Safaricom)
+                "RED" -> "www.airtelkenya.com"    // Airtel Portal Bug
+                "BLUE" -> "stats.mwalimuplus.com"  // Telkom Bug
+                "GREEN" -> "biladata.safaricom.co.ke" // Safaricom Bug
                 else -> "biladata.safaricom.co.ke"
             }
 
             val builder = Builder()
                 .setSession("SweetData VPN")
-                .setMtu(1280) 
+                .setMtu(1280) // Optimized for mobile packet stability
                 .addAddress("172.19.0.1", 30)
-                .addDnsServer("8.8.8.8") // Google DNS for better reliability
+                .addDnsServer("8.8.8.8") 
                 .addRoute("0.0.0.0", 0)
-                .addDisallowedApplication(packageName)
-                .addRoute(vpsIp, 32) 
+                .addDisallowedApplication(packageName) // Don't loop the app's own traffic
+                .addRoute(vpsIp, 32) // Keep VPS traffic outside the tunnel
 
             vpnInterface = builder.establish()
             
@@ -85,7 +93,7 @@ class MyVpnService : VpnService() {
                 val fd = vpnInterface!!.fd
                 Thread {
                     try {
-                        val config = generateConfig(bugHost)
+                        val config = generateXrayConfig(bugHost)
                         coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
                             override fun onEmitStatus(s: Long, m: String?): Long = 0
                             override fun startup(): Long { isRunning = true; return 0 }
@@ -93,7 +101,7 @@ class MyVpnService : VpnService() {
                         })
                         coreController?.startLoop(config, fd)
                     } catch (e: Exception) {
-                        Log.e("SweetData", "Core Error: ${e.message}")
+                        Log.e("SweetData", "Core Loop Error: ${e.message}")
                     }
                 }.start()
             }
@@ -102,7 +110,7 @@ class MyVpnService : VpnService() {
         }
     }
 
-    private fun generateConfig(host: String): String {
+    private fun generateXrayConfig(host: String): String {
         return """
         {
           "outbounds": [{
@@ -141,5 +149,15 @@ class MyVpnService : VpnService() {
         vpnInterface = null
         stopForeground(true)
         stopSelf()
+    }
+
+    override fun onDestroy() {
+        stopVpn()
+        super.onDestroy()
+    }
+
+    override fun onRevoke() {
+        stopVpn()
+        super.onRevoke()
     }
 }
