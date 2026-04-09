@@ -49,8 +49,10 @@ class MainActivity : AppCompatActivity() {
     
     private val timeUpdater = object : Runnable {
         override fun run() {
-            updateBalanceUI()
-            handler.postDelayed(this, 10000) 
+            if (!isFinishing && !isDestroyed) {
+                updateBalanceUI()
+                handler.postDelayed(this, 10000) 
+            }
         }
     }
 
@@ -59,11 +61,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Initialize Firebase
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
+        // Safety check for Web Client ID to prevent immediate crash
+        val clientId = try {
+            getString(R.string.default_web_client_id)
+        } catch (e: Exception) {
+            Log.e("SweetData", "Missing Web Client ID in strings.xml")
+            ""
+        }
+
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestIdToken(clientId)
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
@@ -73,8 +84,9 @@ class MainActivity : AppCompatActivity() {
         tvBalance = findViewById(R.id.tvMbBalance)
         toggleNetwork = findViewById(R.id.toggleNetworkGroup)
 
-        // Set default selection to avoid crash if user doesn't tap anything
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        
+        // Ensure a default is always set
         if (prefs.getString("selected_network_color", null) == null) {
             prefs.edit().putString("selected_network_color", "GREEN").apply()
         }
@@ -104,7 +116,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val user = auth.currentUser
-        if (user == null || user.isAnonymous) {
+        if (user == null) {
             signInWithGoogle()
         } else {
             runSafetyChecks()
@@ -118,15 +130,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
-        // Your Ad Unit ID
         InterstitialAd.load(this, "ca-app-pub-2344867686796379/4612206920", adRequest,
             object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    mInterstitialAd = ad
-                }
+                override fun onAdLoaded(ad: InterstitialAd) { mInterstitialAd = ad }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     mInterstitialAd = null
-                    handler.postDelayed({ loadInterstitial() }, 20000)
+                    handler.postDelayed({ loadInterstitial() }, 30000)
                 }
             })
     }
@@ -135,7 +144,8 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val expiry = prefs.getLong("expiry_time", 0)
         
-        if (System.currentTimeMillis() < expiry) {
+        // Allows connection if balance exists OR if it's the first time/test (expiry 0)
+        if (System.currentTimeMillis() < expiry || expiry == 0L) { 
             val vpnIntent = android.net.VpnService.prepare(this)
             if (vpnIntent != null) {
                 startActivityForResult(vpnIntent, 102)
@@ -171,16 +181,18 @@ class MainActivity : AppCompatActivity() {
             val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
 
             val intent = Intent(this, MyVpnService::class.java)
-            intent.putExtra("NETWORK_COLOR", color)
+            intent.putExtra("NETWORK_COLOR", color) 
             
-            startService(intent)
+            // USE FOREGROUND SERVICE to prevent background execution crashes
+            ContextCompat.startForegroundService(this, intent)
             
             isVpnRunning = true
             btnConnect.text = "STOP"
-            btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
-            tvStatus.text = "CONNECTING ($color)..."
+            btnConnect.setBackgroundColor(Color.parseColor("#4CAF50")) // Success Green
+            tvStatus.text = "TUNNELING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
+            Toast.makeText(this, "Connect Error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -189,7 +201,8 @@ class MainActivity : AppCompatActivity() {
         startService(intent)
         isVpnRunning = false
         btnConnect.text = "CONNECT"
-        btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
+        btnConnect.setBackgroundColor(Color.parseColor("#FF0033")) // SweetData Red
+        tvStatus.text = "DISCONNECTED"
         updateBalanceUI()
     }
 
@@ -216,11 +229,11 @@ class MainActivity : AppCompatActivity() {
             val mins = diff / (60 * 1000)
             tvStatus.text = "PREMIUM ACTIVE"
             tvBalance.text = "$mins MINUTES LEFT"
-            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light))
-        } else {
+            tvStatus.setTextColor(Color.GREEN)
+        } else if (expiry != 0L) {
             tvStatus.text = "ACCESS EXPIRED"
             tvBalance.text = "0 MIN"
-            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light))
+            tvStatus.setTextColor(Color.RED)
             if (isVpnRunning) stopVpn()
         }
     }
@@ -229,8 +242,8 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean("terms_accepted", false)) {
             AlertDialog.Builder(this)
-                .setTitle("Terms of Service")
-                .setMessage("Use at your own risk.")
+                .setTitle("SweetData VPN")
+                .setMessage("By using this app, you agree that SweetData is not liable for data loss or network interruptions.")
                 .setCancelable(false)
                 .setPositiveButton("Accept") { _, _ -> 
                     prefs.edit().putBoolean("terms_accepted", true).apply()
@@ -255,8 +268,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun signInWithGoogle() {
-        val signInIntent = googleSignInClient.signInIntent
-        googleLauncher.launch(signInIntent)
+        try {
+            val signInIntent = googleSignInClient.signInIntent
+            googleLauncher.launch(signInIntent)
+        } catch (e: Exception) {
+            Log.e("SweetData", "Auth Launch Error: ${e.message}")
+        }
     }
 
     private val googleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -265,7 +282,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 val account = task.getResult(ApiException::class.java)!!
                 firebaseAuthWithGoogle(account.idToken!!)
-            } catch (e: ApiException) { }
+            } catch (e: ApiException) { 
+                Log.e("SweetData", "Google Sign-In Fail")
+            }
         }
     }
 
