@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
@@ -10,13 +9,21 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
+        android:hardwareAccelerated="true"
         android:icon="@drawable/app_logo"
         android:label="SweetData VPN"
-        android:theme="@style/Theme.SweetDataVPN"> <!-- CHANGED: Global theme is now your Material theme -->
+        android:theme="@style/Theme.SweetDataVPN">
 
-        <!-- MAIN ENTRY POINT (Keeps the Splash Theme) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -27,21 +34,16 @@
             </intent-filter>
         </activity>
 
-        <!-- TASKS SCREEN (Explicitly using the Material Theme) -->
         <activity
             android:name=".TasksActivity"
             android:exported="false"
-            android:label="SweetData Tasks"
-            android:theme="@style/Theme.SweetDataVPN" />
+            android:label="SweetData Tasks" />
 
-        <!-- SUBSCRIPTION SCREEN (Explicitly using the Material Theme) -->
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false"
-            android:label="SweetData Store"
-            android:theme="@style/Theme.SweetDataVPN" />
+            android:label="SweetData Store" />
 
-        <!-- VPN CORE SERVICE -->
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
@@ -52,7 +54,7 @@
             </intent-filter>
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_F_S_TYPE"
-                android:value="VPN connectivity for SweetData tunneling" />
+                android:value="Provides encrypted tunneling to optimize internet connectivity for users on regional mobile networks." />
         </service>
 
         <meta-data
