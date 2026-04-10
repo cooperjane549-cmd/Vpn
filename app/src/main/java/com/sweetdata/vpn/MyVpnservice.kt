@@ -8,6 +8,9 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import libv2ray.Libv2ray
 import libv2ray.CoreController
 import libv2ray.CoreCallbackHandler
@@ -18,34 +21,45 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // VPS Configuration - Matches your cat /usr/local/etc/xray/config.json
+    // VPS Configuration - Locked to Port 80 based on your server check
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
-    private val CHANNEL_ID = "matcha_vpn_channel"
+    private val CHANNEL_ID = "sweetdata_vpn_channel"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
-        // Handle stop signal from MainActivity
         if (action == "STOP" || action == "STOP_SERVICE") {
             stopVpn()
             return START_NOT_STICKY
         }
 
-        // 1. Start Foreground immediately to satisfy Android System requirements
         startServiceForeground()
 
-        // 2. Fetch the Bug Host (e.g., biladata.safaricom.co.ke)
-        val bugHost = intent?.getStringExtra("BUG_HOST") ?: "biladata.safaricom.co.ke"
-        
-        if (!isRunning) {
-            Thread { 
-                try {
-                    setupAndStartVpn(bugHost) 
-                } catch (e: Exception) {
-                    Log.e("MatchaVPN", "Core Thread Error: ${e.message}")
-                }
-            }.start()
+        // --- FIREBASE REMOTE CONFIG FETCH ---
+        val remoteConfig = Firebase.remoteConfig
+        val configSettings = remoteConfigSettings {
+            minimumFetchIntervalInSeconds = 3600 // Fetches every hour
+        }
+        remoteConfig.setConfigSettingsAsync(configSettings)
+
+        remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
+            // Pulls "bug_host" from Firebase, defaults to biladata if fetch fails
+            val bugHost = if (task.isSuccessful) {
+                remoteConfig.getString("bug_host") 
+            } else {
+                "biladata.safaricom.co.ke"
+            }
+
+            if (!isRunning) {
+                Thread { 
+                    try {
+                        setupAndStartVpn(bugHost) 
+                    } catch (e: Exception) {
+                        Log.e("SweetData", "Core Thread Error: ${e.message}")
+                    }
+                }.start()
+            }
         }
         
         return START_STICKY
@@ -55,7 +69,7 @@ class MyVpnService : VpnService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Matcha VPN Service",
+                "SweetData Active Connection",
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -63,10 +77,11 @@ class MyVpnService : VpnService() {
         }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Matcha is Connecting")
-            .setContentText("Routing your traffic through $vpsIp")
+            .setContentTitle("SweetData VPN is Active")
+            .setContentText("Optimizing your network path...")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
         startForeground(1, notification)
@@ -74,23 +89,19 @@ class MyVpnService : VpnService() {
 
     private fun setupAndStartVpn(bugHost: String) {
         try {
-            // Initialize LibV2Ray environment
             Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
 
             val builder = Builder()
-                .setSession("Matcha VPN")
-                // --- FIX 1: MTU 1100 for Carrier Compatibility ---
+                .setSession("SweetData VPN")
+                // FIX: MTU 1100 for better stability on Safaricom/Airtel
                 .setMtu(1100) 
-                // --- FIX 2: Standard Subnet for Routing stability ---
+                // FIX: Standard subnet to prevent routing black holes
                 .addAddress("10.0.0.2", 24) 
-                // --- FIX 3: Dual DNS to avoid local blocking ---
                 .addDnsServer("1.1.1.1") 
                 .addDnsServer("8.8.8.8")
                 .addRoute("0.0.0.0", 0) 
                 
-                // Prevent the app from tunneling itself (Infinite Loop Fix)
                 .addDisallowedApplication(packageName) 
-                // Bypass the VPS IP so the tunnel connection itself stays outside the VPN
                 .addRoute(vpsIp, 32) 
 
             vpnInterface = builder.establish()
@@ -106,9 +117,11 @@ class MyVpnService : VpnService() {
                 })
                 
                 coreController?.startLoop(config, fd)
+            } else {
+                Log.e("SweetData", "VPN Interface could not be established")
             }
         } catch (e: Exception) {
-            Log.e("MatchaVPN", "VPN Setup Failure: ${e.message}")
+            Log.e("SweetData", "VPN Setup Crash: ${e.message}")
         }
     }
 
@@ -123,7 +136,8 @@ class MyVpnService : VpnService() {
                 "port": 80,
                 "users": [{ 
                     "id": "$vlessUuid", 
-                    "encryption": "none"
+                    "encryption": "none",
+                    "level": 0
                 }]
               }]
             },
@@ -157,7 +171,7 @@ class MyVpnService : VpnService() {
             }
             stopSelf()
         } catch (e: Exception) {
-            Log.e("MatchaVPN", "Error during stop: ${e.message}")
+            Log.e("SweetData", "Error stopping service: ${e.message}")
         }
     }
 
