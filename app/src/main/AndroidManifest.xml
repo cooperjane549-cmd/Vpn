@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <queries>
         <intent>
@@ -45,16 +46,17 @@
             android:label="SweetData Store" />
 
         <service
-            android:name=".MyVpnService"
+            android:name="dev.dev7.v2ray.V2rayService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse"
-            android:exported="false">
+            android:exported="false"
+            android:process=":v2ray">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_F_S_TYPE"
-                android:value="Provides encrypted tunneling to optimize internet connectivity for users on regional mobile networks." />
+                android:value="Provides secure VLESS tunneling to optimize network performance for mobile users." />
         </service>
 
         <meta-data
