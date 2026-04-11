@@ -10,12 +10,14 @@ public class V2rayController {
     public static final int STATE_CONNECTED = 2;
 
     public static void init(Context context, int icon, String appName) {
-        // Initialization logic for the AAR engine
+        // Initialization handled by AAR
     }
 
     public static void startV2ray(Context context, String remark, String config, String bypassApps) {
         try {
-            Intent intent = new Intent(context, V2rayService.class);
+            // We use the full string name of the class to avoid the "cannot find symbol" error
+            Intent intent = new Intent();
+            intent.setClassName(context.getPackageName(), "dev.dev7.v2ray.V2rayService");
             intent.putExtra("COMMAND", "START_V2RAY");
             intent.putExtra("REMARK", remark);
             intent.putExtra("CONFIG", config);
@@ -28,7 +30,8 @@ public class V2rayController {
 
     public static void stopV2ray(Context context) {
         try {
-            Intent intent = new Intent(context, V2rayService.class);
+            Intent intent = new Intent();
+            intent.setClassName(context.getPackageName(), "dev.dev7.v2ray.V2rayService");
             intent.putExtra("COMMAND", "STOP_V2RAY");
             context.startService(intent);
         } catch (Exception e) {
@@ -37,7 +40,6 @@ public class V2rayController {
     }
 
     public static int getConnectionState() {
-        // This links to the internal state of the AAR
         return STATE_DISCONNECTED; 
     }
 }
