@@ -21,12 +21,6 @@ android {
         }
     }
 
-    // THE ULTIMATE BYPASS
-    aaptOptions {
-        noCompress 'aar'
-        cruncherEnabled = false
-    }
-
     signingConfigs {
         release {
             storeFile file("release-key.jks")
@@ -56,10 +50,14 @@ android {
 
     kotlinOptions { jvmTarget = '17' }
 
+    // This part is critical for V2Ray AARs to prevent crashes
     packagingOptions {
         resources {
             excludes += 'META-INF/*'
-            pickFirst 'lib/*/libv2ray.so'
+        }
+        jniLibs {
+            useLegacyPackaging = true
+            pickFirsts.add('lib/*/libv2ray.so')
         }
     }
 }
@@ -72,13 +70,11 @@ repositories {
 
 dependencies {
     // --- THE FIX ---
-    // Instead of 'implementation', we use 'compileOnly' for the AAR 
-    // This stops Gradle from trying to 'transform' or 'compile' its resources
-    compileOnly(files("libs/libv2ray.1.aar"))
-    // This tells the app to actually include the code at runtime
-    runtimeOnly(files("libs/libv2ray.1.aar"))
+    // Change compileOnly/runtimeOnly to implementation. 
+    // This ensures the VPN Service is actually inside your app.
+    implementation(files("libs/libv2ray.1.aar"))
 
-    // --- MATCHA APP FEATURES ---
+    // --- SWEETDATA APP FEATURES ---
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
@@ -86,18 +82,19 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation 'androidx.preference:preference-ktx:1.2.1'
     
-    
+    // Networking Helpers
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation "com.squareup.okio:okio:3.6.0"
     implementation 'com.google.code.gson:gson:2.10.1'
     
+    // Firebase & Ads
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-installations'
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
     implementation 'com.google.android.gms:play-services-auth:21.1.1'
     implementation 'com.google.firebase:firebase-config-ktx'
     
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
 }
+
