@@ -210,7 +210,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             // YOUR VLESS STRING - We inject the bug host into the 'sni' and 'host' parameters
-            val vlessConfig = "vless://25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b@62.169.23.118:80?type=ws&security=none&path=/&host=$finalBugHost&sni=$finalBugHost#Sweetdata_$color"
+            val vlessConfig = "vless://25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b@62.169.23.118:80?type=ws&security=none&path=/sweetdata&host=$finalBugHost&headerType=none#SweetData"
+            
 
             // Start the AAR Engine
             V2rayController.startV2ray(this, "SweetData Connected", vlessConfig, null)
