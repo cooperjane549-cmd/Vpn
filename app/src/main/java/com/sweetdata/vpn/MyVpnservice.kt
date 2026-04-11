@@ -10,10 +10,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.ktx.remoteConfig
-import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import libv2ray.Libv2ray
 import libv2ray.CoreController
 import libv2ray.CoreCallbackHandler
+import java.io.File
 
 class MyVpnService : VpnService() {
 
@@ -21,7 +21,6 @@ class MyVpnService : VpnService() {
     private var coreController: CoreController? = null
     private var isRunning = false
     
-    // Core Server Details
     private val vpsIp = "62.169.23.118"
     private val vlessUuid = "25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b"
     private val CHANNEL_ID = "sweetdata_vpn_channel"
@@ -32,100 +31,85 @@ class MyVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
+        // 1. IMMEDIATE NOTIFICATION (Prevents Android 14 crash)
         startServiceForeground()
 
-        val remoteConfig = Firebase.remoteConfig
-        remoteConfig.setConfigSettingsAsync(remoteConfigSettings {
-            minimumFetchIntervalInSeconds = 300 // Check for new bugs every 5 mins
-        })
-
-        remoteConfig.fetchAndActivate().addOnCompleteListener { 
-            // Pulling dynamic values from Firebase Settings
-            val bugHost = remoteConfig.getString("bug_host").ifEmpty { "www.google.com" }
-            val wsPath = remoteConfig.getString("ws_path").ifEmpty { "/sweetdata" }
-            val networkMtu = remoteConfig.getLong("mtu").toInt().let { if (it == 0) 1280 else it }
-
+        // 2. FETCH CONFIG IN BACKGROUND
+        Firebase.remoteConfig.fetchAndActivate().addOnCompleteListener { 
+            val bugHost = Firebase.remoteConfig.getString("bug_host").ifEmpty { "www.google.com" }
             if (!isRunning) {
-                Thread { setupAndStartVpn(bugHost, wsPath, networkMtu) }.start()
+                Thread { safeStartVpn(bugHost) }.start()
             }
         }
         
         return START_STICKY
     }
 
-    private fun setupAndStartVpn(host: String, path: String, mtuValue: Int) {
+    private fun safeStartVpn(host: String) {
         try {
-            Libv2ray.initCoreEnv(filesDir.absolutePath, cacheDir.absolutePath)
+            // Setup internal files
+            val assetPath = File(filesDir, "assets").apply { mkdirs() }.absolutePath
+            Libv2ray.initCoreEnv(assetPath, cacheDir.absolutePath)
 
             val builder = Builder()
-                .setSession("SweetData Universal")
-                .setMtu(mtuValue) 
-                .addAddress("10.0.0.2", 24) 
+                .setSession("SweetData")
+                .setMtu(1280) // 1280 is the safest for Airtel/Safaricom bundles
+                .addAddress("10.0.0.2", 24)
                 .addDnsServer("8.8.8.8")
                 .addRoute("0.0.0.0", 0) 
-                .addDisallowedApplication(packageName) 
+                .addDisallowedApplication(packageName) // PREVENTS BUNDLE KILL (The VPN stays outside)
 
-            vpnInterface = builder.establish()
+            vpnInterface = builder.establish() ?: return
             
-            if (vpnInterface != null) {
-                val config = generateXrayConfig(host, path)
-                coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
-                    override fun onEmitStatus(s: Long, m: String?): Long = 0
-                    override fun startup(): Long { isRunning = true; return 0 }
-                    override fun shutdown(): Long { isRunning = false; return 0 }
-                })
-                coreController?.startLoop(config, vpnInterface!!.fd)
-            }
+            val config = generateXrayConfig(host)
+            
+            coreController = Libv2ray.newCoreController(object : CoreCallbackHandler {
+                override fun onEmitStatus(s: Long, m: String?): Long = 0
+                override fun startup(): Long { isRunning = true; return 0 }
+                override fun shutdown(): Long { isRunning = false; return 0 }
+            })
+
+            // Attempt to start the core
+            coreController?.startLoop(config, vpnInterface!!.fd)
+
         } catch (e: Exception) {
-            Log.e("SweetData", "Fatal: ${e.message}")
+            Log.e("SweetData", "Core Error: ${e.message}")
+            stopVpn()
         }
     }
 
-    private fun generateXrayConfig(host: String, path: String): String {
+    private fun generateXrayConfig(host: String): String {
         return """
         {
           "dns": { "servers": ["8.8.8.8", "1.1.1.1"] },
-          "outbounds": [
-            {
-              "protocol": "vless",
-              "settings": {
-                "vnext": [{
-                  "address": "$vpsIp",
-                  "port": 80,
-                  "users": [{ "id": "$vlessUuid", "encryption": "none" }]
-                }]
-              },
-              "streamSettings": {
-                "network": "ws",
-                "security": "none",
-                "wsSettings": {
-                  "path": "$path",
-                  "headers": { "Host": "$host" }
-                }
-              },
-              "tag": "proxy"
+          "outbounds": [{
+            "protocol": "vless",
+            "settings": {
+              "vnext": [{
+                "address": "$vpsIp",
+                "port": 80,
+                "users": [{ "id": "$vlessUuid", "encryption": "none" }]
+              }]
             },
-            { "protocol": "freedom", "tag": "direct" }
-          ],
-          "routing": {
-            "rules": [{ "type": "field", "outboundTag": "proxy", "port": "0-65535" }]
-          }
+            "streamSettings": {
+              "network": "ws",
+              "wsSettings": { "path": "/sweetdata", "headers": { "Host": "$host" } }
+            }
+          }]
         }
         """.trimIndent()
     }
 
     private fun startServiceForeground() {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("SweetData is Online")
-            .setContentText("Protecting your connection...")
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .build()
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val chan = NotificationChannel(CHANNEL_ID, "VPN", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(chan)
         }
-        startForeground(1, notification)
+        startForeground(1, NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("SweetData VPN")
+            .setContentText("Connected & Secure")
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setOngoing(true).build())
     }
 
     private fun stopVpn() {
