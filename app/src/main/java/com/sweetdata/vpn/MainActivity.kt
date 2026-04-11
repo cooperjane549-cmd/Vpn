@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // Initialize V2Ray Engine (SweetData Foundation)
-        V2rayController.init(this, R.drawable.ic_launcher, "SweetData VPN")
+        V2rayController.init(this, R.drawable.app_logo, "SweetData VPN")
 
         // Initialize Firebase
         auth = FirebaseAuth.getInstance()
