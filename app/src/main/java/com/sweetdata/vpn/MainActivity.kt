@@ -16,7 +16,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -30,6 +29,9 @@ import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.database.*
+
+// IMPORTANT: Ensure you have added the V2rayController.java file to your project
+import dev.dev7.v2ray.V2rayController 
 
 class MainActivity : AppCompatActivity() {
 
@@ -56,7 +58,10 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             if (!isFinishing && !isDestroyed) {
                 updateBalanceUI()
-                handler.postDelayed(this, 10000) 
+                // Update VPN Running status from the library
+                isVpnRunning = V2rayController.getConnectionState() == V2rayController.STATE_CONNECTED
+                updateButtonUI()
+                handler.postDelayed(this, 5000) 
             }
         }
     }
@@ -66,21 +71,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Initialize V2Ray Engine (SweetData Foundation)
+        V2rayController.init(this, R.drawable.ic_launcher, "SweetData VPN")
+
         // Initialize Firebase
         auth = FirebaseAuth.getInstance()
         database = FirebaseDatabase.getInstance().reference
         
-        // --- START BUG LISTENER ---
         listenForBugUpdates()
         
-        // Safety check for Web Client ID - Prevents crash if string is missing
         val clientId = try {
             val id = getString(R.string.default_web_client_id)
             if (id.isNullOrEmpty()) "placeholder_client_id" else id
-        } catch (e: Exception) {
-            Log.e("SweetData", "Missing Web Client ID in strings.xml")
-            "placeholder_client_id"
-        }
+        } catch (e: Exception) { "placeholder_client_id" }
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(clientId)
@@ -95,10 +98,6 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
-        if (prefs.getString("selected_network_color", null) == null) {
-            prefs.edit().putString("selected_network_color", "GREEN").apply()
-        }
-
         toggleNetwork.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 val colorCode = when (checkedId) {
@@ -111,7 +110,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // --- NAVIGATION BUTTONS ---
         findViewById<MaterialButton>(R.id.navTasks).setOnClickListener {
             startActivity(Intent(this, TasksActivity::class.java))
         }
@@ -121,7 +119,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnConnect.setOnClickListener {
-            if (isVpnRunning) stopVpn() else validateAndConnect()
+            if (isVpnRunning) {
+                stopVpn()
+            } else {
+                validateAndConnect()
+            }
         }
 
         val user = auth.currentUser
@@ -143,7 +145,6 @@ class MainActivity : AppCompatActivity() {
                 airtelBug = snapshot.child("airtel_bug").getValue(String::class.java) ?: airtelBug
                 safaricomBug = snapshot.child("safaricom_bug").getValue(String::class.java) ?: safaricomBug
                 telkomBug = snapshot.child("telkom_bug").getValue(String::class.java) ?: telkomBug
-                Log.d("SweetData", "Bugs Synced: $airtelBug | $safaricomBug | $telkomBug")
             }
             override fun onCancelled(error: DatabaseError) {}
         })
@@ -166,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         val expiry = prefs.getLong("expiry_time", 0)
         
         if (System.currentTimeMillis() < expiry || expiry == 0L) { 
+            // Ask Android for VPN Permission
             val vpnIntent = android.net.VpnService.prepare(this)
             if (vpnIntent != null) {
                 startActivityForResult(vpnIntent, 102)
@@ -200,24 +202,21 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val color = prefs.getString("selected_network_color", "GREEN") ?: "GREEN"
 
+            // Get the host based on network selection
             val finalBugHost = when(color.uppercase()) {
                 "RED" -> airtelBug
                 "BLUE" -> telkomBug
                 else -> safaricomBug
             }
 
-            // --- CRASH FIX: Intent Optimization ---
-            val intent = Intent(this, MyVpnService::class.java).apply {
-                putExtra("NETWORK_COLOR", color)
-                putExtra("BUG_HOST", finalBugHost)
-            }
-            
-            // Using applicationContext for foreground service stability
-            ContextCompat.startForegroundService(applicationContext, intent)
+            // YOUR VLESS STRING - We inject the bug host into the 'sni' and 'host' parameters
+            val vlessConfig = "vless://25bd8cc6-90eb-4a94-9bd1-051ae1c98a0b@62.169.23.118:443?type=ws&security=none&path=%2Fsweetdata&host=$finalBugHost&sni=$finalBugHost#Sweetdata_$color"
+
+            // Start the AAR Engine
+            V2rayController.startV2ray(this, "SweetData Connected", vlessConfig, null)
             
             isVpnRunning = true
-            btnConnect.text = "STOP"
-            btnConnect.setBackgroundColor(Color.parseColor("#4CAF50")) 
+            updateButtonUI()
             tvStatus.text = "TUNNELING ($color)..."
         } catch (e: Exception) {
             Log.e("SweetData", "Start Error: ${e.message}")
@@ -226,16 +225,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopVpn() {
-        // --- CRASH FIX: Standardized Action ---
-        val intent = Intent(this, MyVpnService::class.java).apply { 
-            action = "STOP_SERVICE" 
-        }
-        startService(intent)
+        V2rayController.stopV2ray(this)
         isVpnRunning = false
-        btnConnect.text = "CONNECT"
-        btnConnect.setBackgroundColor(Color.parseColor("#FF0033")) 
+        updateButtonUI()
         tvStatus.text = "DISCONNECTED"
-        updateBalanceUI()
+    }
+
+    private fun updateButtonUI() {
+        if (isVpnRunning) {
+            btnConnect.text = "STOP"
+            btnConnect.setBackgroundColor(Color.parseColor("#4CAF50"))
+        } else {
+            btnConnect.text = "CONNECT"
+            btnConnect.setBackgroundColor(Color.parseColor("#FF0033"))
+        }
     }
 
     private fun syncTimeFromFirebase() {
@@ -261,7 +264,6 @@ class MainActivity : AppCompatActivity() {
 
         if (diff > 0) {
             val mins = diff / (60 * 1000)
-            tvStatus.text = "PREMIUM ACTIVE"
             tvBalance.text = "$mins MINUTES LEFT"
             tvStatus.setTextColor(Color.GREEN)
         } else if (expiry != 0L) {
@@ -277,7 +279,7 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.getBoolean("terms_accepted", false)) {
             AlertDialog.Builder(this)
                 .setTitle("SweetData VPN")
-                .setMessage("By using this app, you agree that SweetData is not liable for data loss or network interruptions.")
+                .setMessage("By using this app, you agree that SweetData is not liable for data loss.")
                 .setCancelable(false)
                 .setPositiveButton("Accept") { _, _ -> 
                     prefs.edit().putBoolean("terms_accepted", true).apply()
